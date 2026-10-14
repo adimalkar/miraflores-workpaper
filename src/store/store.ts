@@ -190,4 +190,5 @@ if (typeof window !== 'undefined') {
   window.addEventListener('popstate', () => useStore.setState({ route: initialRoute() }))
 }
 
-if (typeof window !== 'undefined') (window as unknown as { __proofStore: typeof useStore }).__proofStore = useStore
+// Exposed in development only, for end-to-end tests.
+if (import.meta.env.DEV) (window as unknown as { __proofStore: typeof useStore }).__proofStore = useStore

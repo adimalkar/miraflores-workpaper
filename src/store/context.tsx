@@ -10,7 +10,7 @@ const ModelCtx = createContext<Ctx | null>(null)
 
 export function ModelProvider({ model, children }: { model: Model; children: ReactNode }) {
   const findings = useMemo(() => runChecks(model), [model])
-  if (typeof window !== 'undefined') (window as unknown as { __proof: unknown }).__proof = { model, findings }
+  if (import.meta.env.DEV) (window as unknown as { __proof: unknown }).__proof = { model, findings }
   return <ModelCtx.Provider value={{ m: model, findings }}>{children}</ModelCtx.Provider>
 }
 
