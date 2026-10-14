@@ -8,6 +8,9 @@ import { newId, type WPEvent } from './events'
 // change a multi-machine deployment needs.
 
 const KEY = 'proof.events.v1'
+// The delivered packet keeps the original key; any other packet gets its own event log.
+let eventsKey = KEY
+export const PACKET_OVERRIDE_KEY = 'proof.packet.override'
 const ACTOR_KEY = 'proof.actor'
 const channel: BroadcastChannel | null = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('proof-sync') : null
 
@@ -35,7 +38,8 @@ interface Store {
   palette: boolean
   toasts: Toast[]
   versionView: string
-  hydrate: () => Promise<void>
+  hydrate: (scope?: string) => Promise<void>
+  customPacket: boolean
   setActor: (a: string) => void
   record: (e: NewEvent | NewEvent[], opts?: { toast?: string; silent?: boolean }) => string[]
   undo: (ids: string[], label: string) => void
@@ -52,19 +56,19 @@ interface Store {
 
 async function load(): Promise<WPEvent[]> {
   try {
-    const v = await idbGet(KEY)
+    const v = await idbGet(eventsKey)
     if (Array.isArray(v)) return v
   } catch { /* IndexedDB unavailable */ }
   try {
-    const raw = localStorage.getItem(KEY)
+    const raw = localStorage.getItem(eventsKey)
     if (raw) return JSON.parse(raw)
   } catch { /* storage blocked */ }
   return []
 }
 
 async function save(events: WPEvent[]) {
-  try { await idbSet(KEY, events); return } catch { /* fall through */ }
-  try { localStorage.setItem(KEY, JSON.stringify(events)) } catch { /* storage blocked */ }
+  try { await idbSet(eventsKey, events); return } catch { /* fall through */ }
+  try { localStorage.setItem(eventsKey, JSON.stringify(events)) } catch { /* storage blocked */ }
 }
 
 const initialRoute = () => (typeof location !== 'undefined' && location.hash.slice(1)) || '/overview'
@@ -83,7 +87,10 @@ export const useStore = create<Store>((set, get) => ({
   toasts: [],
   versionView: 'work',
 
-  hydrate: async () => {
+  customPacket: false,
+  hydrate: async (scope) => {
+    eventsKey = scope ? `${KEY}:${scope}` : KEY
+    set({ customPacket: !!scope })
     const events = await load()
     set({ events, ready: true })
   },

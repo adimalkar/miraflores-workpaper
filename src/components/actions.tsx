@@ -68,7 +68,7 @@ export function AdjustDialog({ lineKey, open, onClose }: { lineKey: string; open
   const sign = orig ? incomeSign(orig) : 1
   const amount = ['fed_payment', 'ca_payment', 'fed_credit'].includes(cat) ? delta : delta * sign
   const eff = useMemo(() => effectOf([{ cat, amount }], m.current), [cat, amount, m])
-  const big = largestEffect(eff) > 1000
+  const big = largestEffect(eff) > w.partnerThreshold
   const ok = !Number.isNaN(n) && reason.trim().length > 3 && n !== current
   if (!l) return null
   return (
@@ -97,7 +97,7 @@ export function AdjustDialog({ lineKey, open, onClose }: { lineKey: string; open
         <div className="grid grid-cols-2 gap-3 rounded-lg bg-hilite-soft/70 px-3 py-2.5 ring-1 ring-hilite-deep/20">
           <div><div className="eyebrow">Federal tax</div><div className="num font-semibold">{signed(eff.federalTax)}</div></div>
           <div><div className="eyebrow">California tax</div><div className="num font-semibold">{signed(eff.californiaTax)}</div></div>
-          {big && <div className="col-span-2 text-xs text-pencil-deep">Effect over 1,000: needs partner sign-off before filing.</div>}
+          {big && <div className="col-span-2 text-xs text-pencil-deep">Effect over {w.partnerThreshold.toLocaleString()}: needs partner sign-off before filing (firm rule).</div>}
         </div>
       </div>
     </Modal>
@@ -154,7 +154,7 @@ export function QuestionDialog({ target, open, onClose, label, suggested }: { ta
       <div className="space-y-4">
         <Field label="To">
           <select className={inputCls} value={to} onChange={(e) => setTo(e.target.value)}>
-            <option value="client">Client (Ngozi Okafor & Erik Lindqvist)</option>
+            <option value="client">Client ({m.packet.firm.client_users.map((c) => c.name).join(' & ')})</option>
             {m.packet.firm.staff.map((s) => <option key={s.id} value={s.id}>{s.name} · {s.role.replace('_', ' ')}</option>)}
           </select>
         </Field>

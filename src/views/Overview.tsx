@@ -6,6 +6,7 @@ import { useStore } from '../store/store'
 import { useAllProofs, STATUS_META, type ProofStatus } from '../store/lineState'
 import { useReadiness } from '../store/readiness'
 import { AREAS } from '../data/areas'
+import { areaBlurb, extensionInfo, householdNames, moveSummary, returnForms } from '../data/derived'
 import { areaForLine } from '../data/areas'
 import { Card, Chip, cx, Meter, SectionTitle } from '../components/ui'
 import { money, signed, date } from '../lib/format'
@@ -16,6 +17,8 @@ export function Overview() {
   const w = useWork()
   const fs = useFindingState()
   const r = useReadiness()
+  const names = householdNames(m)
+  const ext = extensionInfo(m)
   const navigate = useStore((s) => s.navigate)
   const proofs = useAllProofs()
   const fed = m.current.summary.federal
@@ -34,16 +37,16 @@ export function Overview() {
     <div>
       <div className="mb-8 flex flex-wrap items-end justify-between gap-6">
         <div>
-          <div className="eyebrow mb-2">2025 Form 1040 + California 540NR · {m.packet.household.filing_status.replace(/_/g, ' ')}</div>
-          <h1 className="display text-[34px] font-bold leading-[1.05] text-ink">Ngozi Okafor <span className="text-ink-300">&</span> Erik Lindqvist</h1>
+          <div className="eyebrow mb-2">{m.packet.household.tax_year} {returnForms(m)} · {m.packet.household.filing_status.replace(/_/g, ' ')}</div>
+          <h1 className="display text-[34px] font-bold leading-[1.05] text-ink">{[names.taxpayer?.name, names.spouse?.name].filter(Boolean).map((n, i) => <span key={n}>{i > 0 && <span className="text-ink-300"> & </span>}{n}</span>)}</h1>
           <p className="mt-2 max-w-2xl text-sm text-ink-500">
-            Moved Sacramento → Austin on 7/14. Engine version {m.current.version} ({date(m.current.computed_at)}) plus {adjCount} workpaper adjustment{adjCount === 1 ? '' : 's'}.
+            {moveSummary(m)}. Engine version {m.current.version} ({date(m.current.computed_at)}) plus {adjCount} workpaper adjustment{adjCount === 1 ? '' : 's'}.
             Prior year prepared by {m.packet.prior_years.return_2024.prepared_by}.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Chip tone={r.ready ? 'tick' : 'amber'} className="!text-xs !px-3 !py-1">{r.stage}</Chip>
-          <Chip tone="neutral" className="!text-xs !px-3 !py-1">Extended to Oct 15, 2026</Chip>
+          {ext.event && ext.extendedTo && <Chip tone="neutral" className="!text-xs !px-3 !py-1">Extended to {date(ext.extendedTo)}</Chip>}
         </div>
       </div>
 
@@ -144,11 +147,12 @@ export function Overview() {
 
 function Figures({ title, rows, bottom }: { title: string; rows: [string, number, number | undefined, number, string][]; bottom: [string, number, number, string] }) {
   const openTrace = useStore((s) => s.openTrace)
+  const year = useModel().m.packet.household.tax_year
   return (
     <div>
       <div className="eyebrow mb-2">{title}</div>
       <table className="w-full text-sm">
-        <thead><tr className="text-2xs text-ink-400"><th className="pb-1 text-left font-normal" /><th className="pb-1 text-right font-normal">2024</th><th className="pb-1 text-right font-normal">2025</th></tr></thead>
+        <thead><tr className="text-2xs text-ink-400"><th className="pb-1 text-left font-normal" /><th className="pb-1 text-right font-normal">{year - 1}</th><th className="pb-1 text-right font-normal">{year}</th></tr></thead>
         <tbody>
           {rows.map(([l, v, p, d, k]) => (
             <tr key={l} className="group cursor-pointer" onClick={() => openTrace(k)}>
@@ -237,7 +241,7 @@ function AreaCard({ areaId, i }: { areaId: (typeof AREAS)[number]['id']; i: numb
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="display text-[15px] font-semibold text-ink">{a.name}</div>
-          <div className="mt-0.5 text-xs text-ink-500">{a.blurb}</div>
+          <div className="mt-0.5 text-xs text-ink-500">{areaBlurb(m, a.id)}</div>
         </div>
         {open > 0 && <Chip tone="pencil">{open} open</Chip>}
       </div>

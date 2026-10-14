@@ -4,6 +4,7 @@ import { effectOf, addEffects, ZERO_EFFECT, largestEffect, type TaxEffect, type 
 import { AREAS, areaForLine } from '../data/areas'
 import type { WPEvent } from './events'
 import type { ReturnLine } from '../data/types'
+import { partnerThreshold } from '../data/derived'
 
 export interface Adjustment {
   adjId: string; lineKey: string; from: number | null; to: number; reason: string; effects: EffectPart[]
@@ -48,6 +49,7 @@ export interface WorkState {
   frozenAt?: string
   lastSeen: Map<string, string> // actor -> ISO
   effectTotal: TaxEffect
+  partnerThreshold: number
   value: (key: string) => number | null
   line: (key: string) => (ReturnLine & { original?: number | string; adjusted?: boolean; flowed?: boolean; pending?: boolean }) | undefined
   pendingCount: number
@@ -77,6 +79,9 @@ export function deriveState(m: Model, events: WPEvent[], findings: Finding[]): W
   const lastSeen = new Map<string, string>()
   let standards: unknown
   let frozenAt: string | undefined
+  // Firm standards can change during the season; thresholds come from the latest version.
+  const lastStd = [...active].reverse().find((e) => e.kind === 'standards.update') as { standards?: { rules?: string[] } } | undefined
+  const threshold = partnerThreshold(lastStd?.standards?.rules ?? m.packet.firm.starter_standards.rules)
 
   for (const e of active) {
     switch (e.kind) {
@@ -84,7 +89,7 @@ export function deriveState(m: Model, events: WPEvent[], findings: Finding[]): W
       case 'unverify': verifications.delete(e.target); break
       case 'adjust': {
         const effect = effectOf(e.effects, m.current)
-        adjustments.set(e.adjId, { adjId: e.adjId, lineKey: e.lineKey, from: e.from, to: e.to, reason: e.reason, effects: e.effects, effect, by: e.actor, at: e.at, findingId: e.findingId, isNew: e.isNew, needsPartner: largestEffect(effect) > 1000 })
+        adjustments.set(e.adjId, { adjId: e.adjId, lineKey: e.lineKey, from: e.from, to: e.to, reason: e.reason, effects: e.effects, effect, by: e.actor, at: e.at, findingId: e.findingId, isNew: e.isNew, needsPartner: largestEffect(effect) > threshold })
         break
       }
       case 'adjust.approve': { const a = adjustments.get(e.adjId); if (a) { a.approvedBy = e.actor; a.approvedAt = e.at }; break }
@@ -185,7 +190,7 @@ export function deriveState(m: Model, events: WPEvent[], findings: Finding[]): W
   return {
     events, active, adjustments, adjByLine, verifications, notes, questions, signoffs, judgments, findingStatus, dispositions,
     attachments, ssnFix, extractionFix, assignments, time, steps, sensitiveViews, filing, standards, frozenAt, lastSeen,
-    effectTotal, value, line, pendingCount: pending.size,
+    effectTotal, value, line, pendingCount: pending.size, partnerThreshold: threshold,
   }
 }
 

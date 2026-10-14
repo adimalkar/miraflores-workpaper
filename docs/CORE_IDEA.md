@@ -62,6 +62,15 @@ WorkState = replay(Packet, events)
 
 Highlights are keyed by `(document, page, extracted value)`, and each extracted value keeps the pipeline's normalized `position`. The viewer has two layers: printed text, and field positions on a page-shaped canvas. Replacing the simulated page with a real PDF or image only changes the bottom layer. Tracing, landing lists and verification stay as they are.
 
+### Generic by construction
+
+Nothing in the app names this client, a document id or an amount:
+- The checks (`src/data/checks.ts`) find their evidence by document type, field and form line.
+- Every schedule, reconciliation, outside-filing list, notice response, due-diligence item and client to-do is derived in `src/data/derived.ts`.
+- The partner-approval threshold, variance thresholds, verification methods and retention period are read from the firm standards, which the administrator can edit.
+
+Firm › Record › *Open another packet* loads any packet in this format, with its own event log. A test variant (different names, the SSN typo fixed, the duplicate mileage page removed) opens with no errors, and the two checks those errors triggered disappear on their own.
+
 ### Tradeoffs
 
 - **Effects are estimates.** The engine can't be rerun, so I use exact arithmetic through sums, and rate estimates where tax rules apply, labelled as such. Where the engine ran a what-if, I use its result.

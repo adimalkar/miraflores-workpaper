@@ -5,6 +5,7 @@ import { useModel, usePerms, useWork } from '../store/context'
 import { useStore } from '../store/store'
 import { useAllProofs, STATUS_META, type LineProof } from '../store/lineState'
 import { AREAS, AREA_BY_ID, areaForLine, type AreaId } from '../data/areas'
+import { areaBlurb } from '../data/derived'
 import { Button, Card, Chip, PageHeader, Tabs, cx } from '../components/ui'
 import { TickMark } from '../components/TickMark'
 import { lineValue, money, pct, VERIFICATION_LABEL } from '../lib/format'
@@ -43,13 +44,13 @@ export function ReturnView({ focus }: { focus?: string }) {
       <PageHeader
         eyebrow="Return"
         title={area ? area.name : 'How the return was built'}
-        sub={area ? area.blurb : 'Start from the amount owed and open any line to see what it was built from, down to the document field. Nothing here is a spreadsheet cell: each line carries its own proof.'}
+        sub={area ? areaBlurb(m, area.id) : 'Start from the amount owed and open any line to see what it was built from, down to the document field. Nothing here is a spreadsheet cell: each line carries its own proof.'}
       />
       <Tabs value={tab} onChange={(v) => { setSel(new Set()); navigate(`/return/${v}`) }} items={items as { id: string; label: string }[]} className="mb-4 rounded-xl bg-ink-100/60 p-1" />
       <Toolbar filter={filter} setFilter={setFilter} sel={sel} setSel={setSel} />
       <Card className="overflow-hidden">
         <div className="grid grid-cols-[minmax(0,1fr)_110px_120px] items-center gap-3 border-b border-ink-100 bg-ink-50/70 px-4 py-2 text-2xs font-medium uppercase tracking-wider text-ink-400 sm:grid-cols-[minmax(0,1fr)_100px_220px_120px]">
-          <span>Line</span><span className="hidden text-right sm:block">2024</span><span className="text-right">2025</span><span className="text-right">Proof</span>
+          <span>Line</span><span className="hidden text-right sm:block">{m.packet.household.tax_year - 1}</span><span className="text-right">{m.packet.household.tax_year}</span><span className="text-right">Proof</span>
         </div>
         <div>
           {roots.map((k, i) => <Node key={`${tab}-${k}`} k={k} depth={0} filter={filter} sel={sel} setSel={setSel} defaultOpen={i === 0 || roots.length < 3} />)}
@@ -67,7 +68,7 @@ function Toolbar({ filter, setFilter, sel, setSel }: { filter: Filter; setFilter
   const [method, setMethod] = useState(std.verification_types[1] ?? std.verification_types[0])
   const opts: { id: Filter; label: string }[] = [
     { id: 'all', label: 'Everything' }, { id: 'flagged', label: 'Flagged' }, { id: 'unverified', label: 'Not verified' },
-    { id: 'adjusted', label: 'Adjusted' }, { id: 'variance', label: 'Swings vs 2024' },
+    { id: 'adjusted', label: 'Adjusted' }, { id: 'variance', label: 'Swings vs prior year' },
   ]
   return (
     <div className="mb-3 flex flex-wrap items-center gap-2">

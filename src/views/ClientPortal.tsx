@@ -46,7 +46,7 @@ export function ClientPortal() {
           <Card className="mt-8 p-6 ring-2 ring-ink">
             <h2 className="display text-xl font-semibold">Your returns are ready for approval</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-lg bg-ink-50 p-4"><div className="eyebrow">Federal · {fed > 0 ? 'balance due' : 'refund'}</div><div className="num text-2xl font-semibold">{money(Math.abs(fed))}</div><div className="text-xs text-ink-500">after the 36,000 you paid in April</div></div>
+              <div className="rounded-lg bg-ink-50 p-4"><div className="eyebrow">Federal · {fed > 0 ? 'balance due' : 'refund'}</div><div className="num text-2xl font-semibold">{money(Math.abs(fed))}</div>{w.value('Sch3.10') ? <div className="text-xs text-ink-500">after the {money(w.value('Sch3.10'))} paid with your extension</div> : null}</div>
               <div className="rounded-lg bg-ink-50 p-4"><div className="eyebrow">California · {ca > 0 ? 'balance due' : 'refund'}</div><div className="num text-2xl font-semibold">{money(Math.abs(ca))}</div></div>
             </div>
             {changes.length > 0 && <div className="mt-4"><div className="eyebrow mb-1">What we corrected</div><ul className="list-disc space-y-1 pl-5 text-sm text-ink-700">{changes.map((t) => <li key={t}>{t}</li>)}</ul></div>}

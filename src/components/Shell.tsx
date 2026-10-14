@@ -22,6 +22,7 @@ import { Filing } from '../views/Filing'
 import { Firm } from '../views/Firm'
 import { ClientPortal } from '../views/ClientPortal'
 import { ago } from '../lib/format'
+import { returnForms } from '../data/derived'
 
 const NAV = [
   { route: '/overview', label: 'Overview', icon: LayoutDashboard },
@@ -170,8 +171,8 @@ function Rail() {
         </div>
         <div className="mt-5 rounded-lg bg-white/[0.06] px-3 py-2.5 ring-1 ring-white/10">
           <div className="text-2xs uppercase tracking-[0.14em] text-ink-400">Client · {m.packet.packet.client_id}</div>
-          <div className="display mt-0.5 text-[15px] font-semibold leading-snug text-white">Okafor-Lindqvist</div>
-          <div className="text-xs text-ink-300">2025 · MFJ · 1040 + CA 540NR</div>
+          <div className="display mt-0.5 text-[15px] font-semibold leading-snug text-white">{m.packet.packet.name.split(/ household| - /)[0]}</div>
+          <div className="text-xs text-ink-300">{m.packet.household.tax_year} · {m.packet.household.filing_status.split('_').map((x) => x[0].toUpperCase()).join('')} · {returnForms(m).replace('Form ', '')}</div>
         </div>
       </div>
       <ul className="flex-1 space-y-0.5 px-3">

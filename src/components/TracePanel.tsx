@@ -164,7 +164,7 @@ export function TracePanel({ lineKey }: { lineKey: string }) {
           <ol className="relative space-y-2.5 border-l border-ink-200 pl-4">
             {prior !== undefined && (
               <li className="text-xs"><Dot c="bg-ink-300" />
-                <span className="text-ink-500">2024 as filed ({m.packet.prior_years.return_2024.prepared_by.split(' (')[0]})</span>
+                <span className="text-ink-500">{m.packet.household.tax_year - 1} as filed ({m.packet.prior_years.return_2024.prepared_by.split(' (')[0]})</span>
                 <span className="num float-right font-medium">{lineValue(prior)}</span>
                 {typeof prior === 'number' && typeof l.value === 'number' && prior !== 0 && <div className="num text-2xs text-ink-400">Change {signed(l.value - prior)} ({pct(((l.value - prior) / Math.abs(prior)) * 100)})</div>}
               </li>

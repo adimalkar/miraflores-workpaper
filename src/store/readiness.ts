@@ -30,7 +30,7 @@ export function useReadiness() {
     const blockers: Blocker[] = [
       { id: 'findings', label: 'Errors found by independent checks', detail: openBlocking.length ? `${openBlocking.length} open` : 'All resolved', route: '/checks', done: openBlocking.length === 0, group: 'checks' },
       { id: 'notes', label: 'Blocking review notes', detail: openNotes.length ? `${openNotes.length} open` : 'None open', route: '/review/notes', done: openNotes.length === 0, group: 'review' },
-      { id: 'partner', label: 'Adjustments over 1,000 approved by partner', detail: needsPartner.length ? `${needsPartner.length} waiting` : 'None waiting', route: '/review/adjustments', done: needsPartner.length === 0, group: 'review' },
+      { id: 'partner', label: `Adjustments over ${w.partnerThreshold.toLocaleString()} approved by partner`, detail: needsPartner.length ? `${needsPartner.length} waiting` : 'None waiting', route: '/review/adjustments', done: needsPartner.length === 0, group: 'review' },
       { id: 'reviewer', label: 'Reviewer sign-off on the return', detail: rev ? (rev.stale.length ? `Reopened: ${rev.stale.length} items changed` : 'Signed') : 'Not signed', route: '/review/signoffs', done: !!rev && rev.stale.length === 0, group: 'review' },
       { id: 'partnerso', label: 'Partner sign-off on the return', detail: par ? (par.stale.length ? `Reopened: ${par.stale.length} items changed` : 'Signed') : 'Not signed', route: '/review/signoffs', done: !!par && par.stale.length === 0, group: 'review' },
       { id: 'steps', label: 'Required steps before approval', detail: `${preSteps.filter((s) => s.done).length} of ${preSteps.length}`, route: '/review/steps', done: preSteps.every((s) => s.done), group: 'steps' },

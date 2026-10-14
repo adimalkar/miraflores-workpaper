@@ -3,6 +3,7 @@ import { lineValueNum } from './model'
 import type { EffectPart } from './effects'
 import type { AreaId } from './areas'
 import type { ReturnLine } from './types'
+import { paymentsRecon } from './derived'
 
 // Independent checks. Each one re-derives a figure from the documents, the client's own words,
 // the prior year or the agency records, and compares it with what the engine produced.
@@ -42,6 +43,12 @@ const fmt = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 2 
 
 function line(m: Model, key: string): ReturnLine | undefined {
   return m.lineMaps.get(m.current.version)!.get(key)
+}
+
+/** First notice item (from agency records) whose text matches. */
+function noticeItem(m: Model, re: RegExp) {
+  for (const n of m.packet.tax_agency_records.notices) for (const item of n.items_under_examination ?? []) if (re.test(item)) return { notice: n, item }
+  return null
 }
 
 function pageText(m: Model, docId: string, page?: number) {
@@ -126,7 +133,7 @@ const isShort = (box: string) => 'ABCGHI'.includes(box)
 function stockPlanBasis(m: Model): Finding[] {
   const supp = m.docs.filter((d) => d.document_type === 'stock_plan_supplement')
   const suppEv = supp.flatMap((d) => m.evByDoc.get(d.id) ?? [])
-  const fixes: { lot: LotInfo; basisEv: string; acqEv: string; basis: number; line: ReturnLine }[] = []
+  const fixes: { lot: LotInfo; basisEv: string; acqEv: string; basis: number; line: ReturnLine; planLot: string }[] = []
   for (const l of m.current.lines) {
     const lot = parseLot(l)
     if (!lot || lot.basis !== 0 || !'BE'.includes(lot.box)) continue
@@ -135,18 +142,20 @@ function stockPlanBasis(m: Model): Finding[] {
     const prefix = acq.field.replace(/_acquired$/, '')
     const b = suppEv.find((e) => e.field === `${prefix}_adjusted_basis`)
     if (!b) continue
-    fixes.push({ lot, basisEv: b.id, acqEv: acq.id, basis: Number(b.value), line: l })
+    fixes.push({ lot, basisEv: b.id, acqEv: acq.id, basis: Number(b.value), line: l, planLot: prefix })
   }
   if (!fixes.length) return []
   const total = fixes.reduce((s, f) => s + f.basis, 0)
+  const matched = m.current.lines.filter((l) => /^F8949\./.test(l.key) && l.sources.some((s) => suppEv.some((e) => e.id === s))).map((l) => l.key.split('.')[2])
+  const w2Rsu = m.packet.extracted_values.find((e) => m.docById.get(e.document_id)?.document_type === 'W-2' && /RSU/i.test(e.label + e.field))
   return [{
-    id: 'rsu-zero-basis', title: 'RSU sales taxed on their full proceeds',
+    id: 'rsu-zero-basis', title: 'Stock compensation sales taxed on their full proceeds',
     area: 'wages', severity: 'error', kind: 'engine',
-    summary: `${fixes.length} RSU lots carry a basis of 0 because the broker left noncovered basis blank. The stock plan supplement gives the adjusted basis (the vest value already taxed on the W-2). Gain is overstated by ${fmt(total)}.`,
+    summary: `${fixes.length} noncovered lot${fixes.length > 1 ? 's carry' : ' carries'} a basis of 0 because the broker left basis blank. The stock plan supplement gives the adjusted basis (income already taxed on the W-2). Gain is overstated by ${fmt(total)}.`,
     facts: [
-      ...fixes.map((f) => ({ text: `${f.lot.lot}: proceeds ${fmt(f.lot.proceeds)}, supplement basis ${fmt(f.basis)} → gain ${fmt(f.lot.proceeds - f.basis)} (engine: ${fmt(f.lot.proceeds)})`, refs: [f.basisEv, ...f.line.sources.slice(-1)] })),
-      { text: 'The engine matched the supplement for the ESPP lot (N2) but not for these RSU lots: the broker\'s lot numbers (N1, N3, N4) differ from the plan\'s (RSU-2502, RSU-2505, RSU-2308). Matching by acquisition date succeeds.', refs: ['ev-0072'] },
-      { text: 'Corvane W-2 box 14 reports RSU income 38,200 = 800 sh × 47.75, the same vests.', refs: ['ev-0016'] },
+      ...fixes.map((f) => ({ text: `${f.lot.lot} = plan lot ${f.planLot}: proceeds ${fmt(f.lot.proceeds)}, supplement basis ${fmt(f.basis)} → gain ${fmt(f.lot.proceeds - f.basis)} (engine: ${fmt(f.lot.proceeds)})`, refs: [f.basisEv, f.acqEv] })),
+      ...(matched.length ? [{ text: `The engine did match the supplement for ${matched.join(', ')}, but not for these lots: the broker's lot numbers differ from the plan's. Matching by acquisition date succeeds.` }] : []),
+      ...(w2Rsu ? [{ text: `${m.docById.get(w2Rsu.document_id)?.issuer} W-2: ${w2Rsu.label} ${fmt(Number(w2Rsu.value))}, the same vests already taxed as wages.`, refs: [w2Rsu.id] }] : []),
     ],
     lines: fixes.map((f) => f.lot.key), refs: fixes.map((f) => f.basisEv),
     proposals: fixes.map((f) => ({
@@ -154,7 +163,6 @@ function stockPlanBasis(m: Model): Finding[] {
       reason: `Basis per stock plan supplement (${f.basisEv}); report adjustment code B.`,
       effects: [{ cat: isShort(f.lot.box) ? 'stcg' as const : 'ltcg' as const, amount: -f.basis }],
     })),
-    engineDiagnostic: undefined,
     method: 'Finds noncovered lots with zero basis and looks for a stock plan supplement lot with the same acquisition date.',
   }]
 }
@@ -206,7 +214,7 @@ function cryptoBasis(m: Model): Finding[] {
     const cost = msg ? num(msg.text.match(/about ([\d,]+)/)?.[1] ?? 'NaN') : NaN
     const date = msg?.text.match(/(\d{2})\/(\d{2})\/(\d{4})/)
     const acquired = date ? `${date[3]}-${date[1]}-${date[2]}` : null
-    const facts: Fact[] = [{ text: `Coinhaven export: "${pageText(m, nullBasis.document_id).match(/C6[^;]*;/)?.[0] ?? 'basis unknown'}"`, refs: [nullBasis.id] }]
+    const facts: Fact[] = [{ text: `${m.docById.get(nullBasis.document_id)?.issuer} export: "${pageText(m, nullBasis.document_id).match(new RegExp(`${lot.lot} [^;]*;`))?.[0] ?? 'basis unknown'}"`, refs: [nullBasis.id] }]
     if (msg) facts.push({ text: `Client (${msg.sent_at.slice(0, 10)}): "${msg.text}"`, refs: [msg.id] })
     const proposals: Proposal[] = []
     if (msg && !Number.isNaN(cost) && acquired) {
@@ -241,6 +249,8 @@ function duplicateMileagePage(m: Model): Finding[] {
     sig.set(p, evs.filter((e) => e.page === p && /^trip\d+_(date|miles)$/.test(e.field)).map((e) => `${e.field}=${e.value}`).join('|'))
   }
   const pages = [...sig.keys()].sort((a, b) => a - b)
+  const odoStart = evs.find((e) => e.field === 'odometer_start'), odoEnd = evs.find((e) => e.field === 'odometer_end')
+  const pyMiles = m.priorLines['SchC.44a']
   for (let i = 0; i < pages.length; i++) for (let j = i + 1; j < pages.length; j++) {
     if (!sig.get(pages[i]) || sig.get(pages[i]) !== sig.get(pages[j])) continue
     const dup = pageTotals.find((e) => e.page === pages[j])
@@ -248,15 +258,16 @@ function duplicateMileagePage(m: Model): Finding[] {
     const correct = Number(miles.value) - Number(dup.value)
     const rate = Number(m.packet.engine_reference.parameters.mileage_rate)
     const carRight = Math.round(correct * rate)
+    const total = odoStart && odoEnd ? Number(odoEnd.value) - Number(odoStart.value) : null
     out.push({
       id: 'mileage-duplicate-page', title: 'Mileage log page counted twice',
       area: 'business', severity: 'error', kind: 'engine',
-      summary: `Page ${pages[j]} of the mileage log is a second scan of page ${pages[i]} (same ${evs.filter((e) => e.page === pages[i] && e.field.endsWith('_date')).length} trips, same dates and miles). Business miles are ${fmt(correct)}, not ${fmt(Number(miles.value))}; car expense ${fmt(carRight)}, not ${fmt(Number(car.value))}.`,
+      summary: `Page ${pages[j]} of the mileage log repeats page ${pages[i]} trip for trip (${evs.filter((e) => e.page === pages[i] && e.field.endsWith('_date')).length} identical trips). Business miles are ${fmt(correct)}, not ${fmt(Number(miles.value))}; car expense ${fmt(carRight)}, not ${fmt(Number(car.value))}.`,
       facts: [
-        { text: `Printed on page ${pages[j]}: "${pageText(m, docId, pages[j]).match(/^\([^)]*\)/)?.[0] ?? ''}"`, refs: [`doc:${docId}#page${pages[j]}`] },
-        { text: `Rule R-MILEAGE-PAGE-TOTALS sums every page total: ${pageTotals.map((e) => e.value).join(' + ')} = ${fmt(Number(miles.value))}.`, refs: pageTotals.map((e) => e.id) },
-        { text: `Odometer 41,220 → 58,960 = 17,740 total miles; business share ${Math.round((correct / 17740) * 100)}% after the fix.` },
-        { text: `2024 business miles were 7,400.`, refs: ['py:/return_2024/lines/SchC.44a'] },
+        { text: `Printed on page ${pages[j]}: "${pageText(m, docId, pages[j]).slice(0, 110)}…"`, refs: [`doc:${docId}#page${pages[j]}`] },
+        { text: `${m.ruleText(miles.rule)} ${pageTotals.map((e) => e.value).join(' + ')} = ${fmt(Number(miles.value))}.`, refs: pageTotals.map((e) => e.id) },
+        ...(total ? [{ text: `Odometer ${fmt(Number(odoStart!.value))} → ${fmt(Number(odoEnd!.value))} = ${fmt(total)} total miles; business share ${Math.round((correct / total) * 100)}% after the fix.`, refs: [odoStart!.id, odoEnd!.id] }] : []),
+        ...(typeof pyMiles === 'number' ? [{ text: `Prior-year business miles: ${fmt(pyMiles)}.`, refs: ['py:/return_2024/lines/SchC.44a'] }] : []),
       ],
       lines: ['SchC.44a', 'SchC.9'], refs: [dup.id],
       proposals: [
@@ -276,24 +287,28 @@ function form1099KDoubleCount(m: Model): Finding[] {
   const books = gross.sources.map((s) => m.ev.get(s)).find((e) => e && e.field === 'total_income')
   if (!k || !books) return []
   const kAmt = Number(k.value)
+  const kDoc = m.docById.get(k.document_id)!
   const detail = m.docs.filter((d) => d.document_type === 'books_transaction_detail')
-  const hit = detail.map((d) => ({ d, t: pageText(m, d.id) })).find(({ t }) => t.includes(fmt(kAmt) + '.00') && /card processing|Paywell/i.test(t))
-  if (!hit) return []
+  const match = detail.flatMap((d) => (m.evByDoc.get(d.id) ?? []).filter((e) => Number(e.value) === kAmt)).find(Boolean)
+  if (!match) return []
+  const sentence = pageText(m, match.document_id, match.page).split(/(?<=\.)\s/).find((s) => s.includes(fmt(kAmt)))
   const necs = m.docs.filter((d) => d.document_type === '1099-NEC').flatMap((d) => (m.evByDoc.get(d.id) ?? []).filter((e) => e.field === 'box1'))
   const necTotal = necs.reduce((s, e) => s + Number(e.value), 0)
-  const no1099 = num(hit.t.match(/no Form 1099: ([\d,.]+)/)?.[1] ?? '0')
+  const noForm = (m.evByDoc.get(match.document_id) ?? []).find((e) => /unreported|no.?1099/i.test(e.field))
+  const exam = noticeItem(m, /1099-K/)
   return [{
     id: '1099k-double-count', title: 'Card payments counted in receipts twice',
     area: 'business', severity: 'error', kind: 'engine',
-    summary: `Gross receipts add the 1099-K (${fmt(kAmt)}) on top of the books, but the books already include it: Atlas Outdoor Gear paid ${fmt(kAmt)} by card through Paywell, deposited gross. Receipts are ${fmt(Number(books.value))}, not ${fmt(Number(gross.value))}.`,
+    summary: `Gross receipts add the 1099-K from ${kDoc.issuer} (${fmt(kAmt)}) on top of the books, but the books already include those deposits. Receipts are ${fmt(Number(books.value))}, not ${fmt(Number(gross.value))}.`,
     facts: [
-      { text: `Books transaction detail: "${hit.t.match(/Atlas Outdoor Gear paid[^.]*\./)?.[0] ?? ''}"`, refs: [`${hit.d.id}`] },
-      { text: `Reconciliation: 1099-NEC total ${fmt(necTotal)} + deposits from clients with no 1099 ${fmt(no1099)} = ${fmt(necTotal + no1099)} = books revenue ${fmt(Number(books.value))}. The 1099-K is a subset of the Atlas 1099-NEC.`, refs: necs.map((e) => e.id) },
-      { text: 'This is the reconciliation the IRS asks for in the 2028 Letter 566.', refs: ['D72'] },
+      { text: `Books detail: "${sentence ?? match.label}"`, refs: [match.id] },
+      ...(noForm ? [{ text: `1099-NEC total ${fmt(necTotal)} + ${noForm.label.toLowerCase()} ${fmt(Number(noForm.value))} = ${fmt(necTotal + Number(noForm.value))} vs books revenue ${fmt(Number(books.value))}.`, refs: [...necs.map((e) => e.id), noForm.id] }] : []),
+      { text: `Engine rule ${gross.rule}: ${m.ruleText(gross.rule)}`, refs: [k.id] },
+      ...(exam ? [{ text: `The ${exam.notice.type} (${exam.notice.dated}) asks for exactly this reconciliation.`, refs: [exam.notice.document] }] : []),
     ],
     lines: ['SchC.1'], refs: [k.id, books.id],
-    proposals: [{ kind: 'line', lineKey: 'SchC.1', to: Number(books.value), reason: `1099-K ${fmt(kAmt)} matched to books deposits (${hit.d.id}).`, effects: [{ cat: 'schc_profit', amount: -kAmt }] }],
-    method: 'Searches the books detail for the 1099-K amount and payer before accepting it as unmatched income.',
+    proposals: [{ kind: 'line', lineKey: 'SchC.1', to: Number(books.value), reason: `1099-K ${fmt(kAmt)} matched to books deposits (${match.id}).`, effects: [{ cat: 'schc_profit', amount: -kAmt }] }],
+    method: 'Searches the books detail for the 1099-K amount before accepting it as income the books missed.',
   }]
 }
 
@@ -306,70 +321,93 @@ function seHealthInsurance(m: Model): Finding[] {
   return [{
     id: 'sehi-eligible', title: 'Self-employed health insurance claimed while eligible for an employer plan',
     area: 'business', severity: 'error', kind: 'engine',
-    summary: `The deduction is not allowed for any month Erik was eligible to join a subsidized employer plan, including a spouse's. The client says both of Ngozi's employers offered family coverage. ${fmt(Number(sehi.value))} should come off.`,
+    summary: `The deduction is not allowed for any month the self-employed person was eligible to join a subsidized employer plan, including a spouse's. The client answered yes to eligibility. ${fmt(Number(sehi.value))} should come off.`,
     facts: [
       { text: `${q.id}: "${q.question}" → "${q.answer}"`, refs: [q.id] },
-      { text: `2024 return: "${pyNote}"`, refs: ['py:/return_2024/notes/Sch1.17'] },
+      ...(pyNote ? [{ text: `Prior-year return: "${pyNote}"`, refs: ['py:/return_2024/notes/Sch1.17'] }] : []),
       { text: 'Removing it raises QBI as well; the per-dollar adjustment rate does not capture that, so the estimate is conservative.' },
     ],
     lines: ['Sch1.17'], refs: [q.id],
-    proposals: [{ kind: 'line', lineKey: 'Sch1.17', to: 0, reason: `Eligible for employer-subsidized coverage through spouse (${q.id}).`, effects: [{ cat: 'adjustment', amount: -Number(sehi.value) }] }],
+    proposals: [{ kind: 'line', lineKey: 'Sch1.17', to: 0, reason: `Eligible for employer-subsidized coverage (${q.id}).`, effects: [{ cat: 'adjustment', amount: -Number(sehi.value) }] }],
     method: 'Reads the eligibility answer before allowing the deduction.',
   }]
 }
 
 function mixedUseExpenses(m: Model): Finding[] {
-  const call = m.packet.client.call_notes[0]
-  const util = line(m, 'SchC.25'), soft = line(m, 'SchC.27a.1')
-  if (!call || !util || !soft) return []
-  const notes = call.notes.join(' ')
-  const phonePct = Number(notes.match(/business share is (\d+)%/)?.[1] ?? NaN) / 100
-  const netPct = Number(notes.match(/business use about (\d+)%/)?.[1] ?? NaN) / 100
-  const phone = m.ev.get(util.sources.find((s) => m.ev.get(s)?.field === 'Telephone') ?? '')
-  const net = m.ev.get(util.sources.find((s) => m.ev.get(s)?.field === 'Internet') ?? '')
-  if (!phone || !net || Number.isNaN(phonePct) || Number.isNaN(netPct)) return []
-  const utilRight = Math.round(Number(phone.value) * phonePct + Number(net.value) * netPct)
+  const out: Proposal[] = []
+  const facts: Fact[] = []
+  const calls = m.packet.client.call_notes
+  // Business-use percentages stated by the client, matched to the books account they name.
+  const pctStatements = calls.flatMap((c) => c.notes.map((n) => ({ c, n, pct: Number(n.match(/(\d{1,3})%/)?.[1] ?? NaN) / 100 }))).filter((x) => !Number.isNaN(x.pct))
+  const books = m.docs.find((d) => d.document_type === 'books_profit_loss')
+  if (!books) return []
+  const bookEvs = m.evByDoc.get(books.id) ?? []
+  const byLine = new Map<string, { from: number; to: number; reasons: string[] }>()
+  const touch = (lineKey: string) => { const l = line(m, lineKey)!; const x = byLine.get(lineKey) ?? { from: Number(l.value), to: Number(l.value), reasons: [] }; byLine.set(lineKey, x); return x }
+  for (const s of pctStatements) {
+    const acct = bookEvs.find((e) => s.n.toLowerCase().includes(e.field.toLowerCase().split(' ')[0]) || (/phone|mobile/i.test(s.n) && /telephone/i.test(e.field)))
+    if (!acct) continue
+    const l = m.current.lines.find((x) => x.form === 'SchC' && x.sources.includes(acct.id))
+    if (!l) continue
+    const x = touch(l.key)
+    const cut = Math.round(Number(acct.value) * (1 - s.pct))
+    x.to -= cut
+    x.reasons.push(`${acct.field} ${Math.round(s.pct * 100)}% business`)
+    facts.push({ text: `${s.n} → ${acct.field} ${fmt(Number(acct.value))} × ${Math.round(s.pct * 100)}% = ${fmt(Number(acct.value) - cut)}`, refs: [s.c.id, acct.id] })
+  }
+  // Items the client called personal, found in the books detail.
   const detail = m.docs.find((d) => d.document_type === 'books_transaction_detail')
-  const spotify = detail ? num(pageText(m, detail.id).match(/Spotify Family ([\d,.]+)/)?.[1] ?? '0') : 0
-  const proposals: Proposal[] = [
-    { kind: 'line', lineKey: 'SchC.25', to: utilRight, reason: `Phone ${phonePct * 100}% and internet ${netPct * 100}% business use (call ${call.date.slice(0, 10)}).`, effects: [{ cat: 'schc_profit', amount: Number(util.value) - utilRight }] },
-  ]
-  if (spotify && /Spotify.*personal/i.test(notes)) proposals.push({ kind: 'line', lineKey: 'SchC.27a.1', to: Number(soft.value) - spotify, reason: 'Spotify Family is personal (booked by mistake).', effects: [{ cat: 'schc_profit', amount: spotify }] })
+  for (const c of calls) for (const n of c.notes.filter((x) => /personal/i.test(x))) {
+    const word = n.split(/\s+/).find((wd) => /^[A-Z]/.test(wd))
+    const ev = detail ? (m.evByDoc.get(detail.id) ?? []).find((e) => word && (e.field.toLowerCase().includes(word.toLowerCase()) || e.label.toLowerCase().includes(word.toLowerCase()))) : undefined
+    if (!ev) continue
+    // The detail sentence that mentions the item names the books account it was booked to.
+    const sentence = pageText(m, detail!.id).split(/(?<=\.)\s/).find((s) => s.toLowerCase().includes(word!.toLowerCase()))
+    const acct = sentence ? bookEvs.find((e) => sentence.startsWith(e.field) || sentence.includes(`${e.field} `)) : undefined
+    const l = acct ? m.current.lines.find((x) => x.form === 'SchC' && x.sources.includes(acct.id)) : undefined
+    if (!l) continue
+    const x = touch(l.key)
+    x.to -= Number(ev.value)
+    x.reasons.push(`${ev.label} personal`)
+    facts.push({ text: `${n} → remove ${fmt(Number(ev.value))} from ${l.label.toLowerCase()}`, refs: [c.id, ev.id] })
+  }
+  for (const [k, x] of byLine) if (x.to !== x.from) out.push({ kind: 'line', lineKey: k, to: x.to, reason: `Business use per client call: ${x.reasons.join('; ')}.`, effects: [{ cat: 'schc_profit', amount: x.from - x.to }] })
+  if (!out.length) return []
   return [{
-    id: 'mixed-use', title: 'Family phone, home internet and a music subscription deducted in full',
+    id: 'mixed-use', title: 'Personal share of mixed-use expenses deducted in full',
     area: 'business', severity: 'warning', kind: 'engine',
-    summary: `The books carry the whole family mobile plan, the home internet and Spotify Family. On the call Erik put the business share at ${phonePct * 100}% and ${netPct * 100}%, and called Spotify personal.`,
-    facts: [
-      ...call.notes.filter((n) => /Mobile|internet|Spotify/i.test(n)).map((n) => ({ text: n, refs: [call.id] })),
-      { text: `Utilities ${fmt(Number(util.value))} → ${fmt(utilRight)}; software ${fmt(Number(soft.value))} → ${fmt(Number(soft.value) - spotify)}.`, refs: [phone.id, net.id] },
-    ],
-    lines: ['SchC.25', 'SchC.27a.1'], refs: [call.id],
-    proposals,
-    method: 'Applies the business-use percentages the client gave on the call to the books lines.',
+    summary: `The books deduct whole bills that the client says are partly personal. Applying the client's own business-use figures changes ${out.length} Schedule C line${out.length > 1 ? 's' : ''}.`,
+    facts, lines: [...byLine.keys()], refs: calls.map((c) => c.id), proposals: out,
+    method: 'Matches business-use percentages and "personal" items from the call notes to the books accounts they name.',
   }]
 }
 
 function hvacCapitalize(m: Model): Finding[] {
-  const rep = line(m, 'SchE.14A')
-  const wi = m.packet.what_if.alternatives.find((a) => a.id === 'hvac_improvement')
-  if (!rep || !wi) return []
-  const inv = m.docs.find((d) => d.document_type === 'invoice' && /Heating/i.test(d.title))
-  return [{
-    id: 'hvac-improvement', title: 'Whole HVAC system replacement expensed as a repair',
-    area: 'rentals', severity: 'warning', kind: 'judgment',
-    summary: 'The 11,000 job replaced the furnace and condenser with a new heat pump, air handler and line set. That is a restoration of a building system, which is normally capitalized and depreciated over 27.5 years. The engine expensed it inside repairs.',
-    facts: [
-      ...(inv ? [{ text: `Invoice: "${pageText(m, inv.id).match(/Removed[^.]*\.[^.]*\./)?.[0] ?? ''}"`, refs: [inv.id] }] : []),
-      { text: 'Call: "replaced the whole system with a heat pump (new air handler, line set)."', refs: ['call-01'] },
-      { text: `Engine what-if "${wi.id}": federal tax +${fmt(wi.federal.total_tax_change)}, California +${fmt(wi.california.total_tax_change)}.` },
-    ],
-    lines: ['SchE.14A', 'SchE.18A'], refs: inv ? [inv.id] : [], whatIf: wi.id,
-    proposals: wi.changed_lines.filter((c) => c.key === 'SchE.14A' || c.key === 'SchE.18A').map((c, i) => ({
-      kind: 'line' as const, lineKey: c.key, to: Number(c.new), reason: 'Capitalize the HVAC replacement (Reg. 1.263(a)-3 restoration of a building system); depreciate SL 27.5 years from 08/2025.',
-      effects: i === 0 ? [{ cat: 'fixed' as const, amount: 0, fixed: { federal: wi.federal.total_tax_change, california: wi.california.total_tax_change }, note: `Engine what-if ${wi.id}` }] : [],
-    })),
-    method: 'Reads the invoice description against the repair treatment; the effect comes from the engine\'s own what-if.',
-  }]
+  const out: Finding[] = []
+  for (const wi of m.packet.what_if.alternatives) {
+    const repair = wi.changed_lines.find((c) => /^SchE\.14[A-Z]$/.test(c.key))
+    if (!repair || !/improvement|capitaliz/i.test(wi.description)) continue
+    const amount = Number(repair.old) - Number(repair.new)
+    const inv = m.docs.find((d) => d.document_type === 'invoice' && (m.evByDoc.get(d.id) ?? []).some((e) => Number(e.value) === amount))
+    const said = m.packet.client.call_notes.flatMap((c) => c.notes.map((n) => ({ c, n }))).find(({ n }) => /replace/i.test(n))
+    out.push({
+      id: `capitalize-${repair.key}`, title: 'A replacement expensed as a repair',
+      area: 'rentals', severity: 'warning', kind: 'judgment',
+      summary: `${fmt(amount)} sits inside rental repairs, but the work replaced a building system. Restorations are normally capitalized and depreciated. The engine has a what-if for it: ${wi.description}`,
+      facts: [
+        ...(inv ? [{ text: `Invoice: "${pageText(m, inv.id).slice(0, 160)}…"`, refs: [inv.id] }] : []),
+        ...(said ? [{ text: `Client call: "${said.n}"`, refs: [said.c.id] }] : []),
+        { text: `Engine what-if "${wi.id}": federal tax ${wi.federal.total_tax_change >= 0 ? '+' : ''}${fmt(wi.federal.total_tax_change)}, state ${wi.california.total_tax_change >= 0 ? '+' : ''}${fmt(wi.california.total_tax_change)}.` },
+      ],
+      lines: wi.changed_lines.filter((c) => /^SchE\.(14|18)/.test(c.key)).map((c) => c.key), refs: inv ? [inv.id] : [], whatIf: wi.id,
+      proposals: wi.changed_lines.filter((c) => /^SchE\.(14|18)[A-Z]$/.test(c.key)).map((c, i) => ({
+        kind: 'line' as const, lineKey: c.key, to: Number(c.new), reason: 'Capitalize the replacement (Reg. 1.263(a)-3 restoration of a building system); depreciate SL 27.5 years.',
+        effects: i === 0 ? [{ cat: 'fixed' as const, amount: 0, fixed: { federal: wi.federal.total_tax_change, california: wi.california.total_tax_change }, note: `Engine what-if ${wi.id}` }] : [],
+      })),
+      method: 'Looks for engine what-ifs that move a repair into improvements, and the invoice and client words that support it.',
+    })
+  }
+  return out
 }
 
 function homePropertyTax(m: Model): Finding[] {
@@ -384,24 +422,25 @@ function homePropertyTax(m: Model): Finding[] {
   const totalAfter = Number(inc.value) + right
   const limitedBefore = Math.min(totalBefore, capAmt)
   const limitedAfter = Math.min(totalAfter, capAmt)
+  const receipt = m.docs.find((d) => d.document_type === 'property_tax_receipt')
   return [{
-    id: 'home-tax-seller-share', title: 'Home property tax includes the seller\'s share',
+    id: 'home-tax-seller-share', title: "Home property tax includes the seller's share",
     area: 'deductions', severity: 'error', kind: 'engine',
-    summary: `The 2025 Travis County bill (${fmt(Number(re.value))}) covers the whole year, but the seller owned the house until 07/07 and credited the buyers ${fmt(Number(credit.value))} at closing for that period. The buyers' deductible share is ${fmt(right)}.`,
+    summary: `The full-year bill (${fmt(Number(re.value))}) was deducted, but the buyer closing statement credits ${fmt(Number(credit.value))} from the seller for the part of the year before the purchase. The buyers' deductible share is ${fmt(right)}.`,
     facts: [
-      { text: `Buyer closing statement: "${pageText(m, buyer.id).match(/Seller credit[^.]*\./)?.[0] ?? ''}"`, refs: [credit.id] },
-      { text: 'Travis County receipt: owner of record 01/01/2025 was the prior owner.', refs: ['D58'] },
-      { text: `State and local taxes fall from ${fmt(totalBefore)} to ${fmt(totalAfter)}, crossing below the ${fmt(capAmt)} cap: the federal deduction drops ${fmt(limitedBefore - limitedAfter)}.` },
+      { text: `${credit.label}: ${fmt(Number(credit.value))} ("${pageText(m, buyer.id).split(/(?<=\.)\s/).find((s) => s.includes(fmt(Number(credit.value)))) ?? ''}")`, refs: [credit.id] },
+      ...(receipt ? [{ text: `Tax receipt: "${pageText(m, receipt.id)}"`, refs: [receipt.id] }] : []),
+      { text: `State and local taxes fall from ${fmt(totalBefore)} to ${fmt(totalAfter)} against the ${fmt(capAmt)} cap: the federal deduction drops ${fmt(limitedBefore - limitedAfter)}.` },
     ],
     lines: ['SchA.5b', 'SchA.5e'], refs: [credit.id],
     proposals: [{
-      kind: 'line', lineKey: 'SchA.5b', to: right, reason: `Exclude seller's share 01/01–07/07 credited at closing (${credit.id}).`,
+      kind: 'line', lineKey: 'SchA.5b', to: right, reason: `Exclude the seller's share credited at closing (${credit.id}).`,
       effects: [
-        { cat: 'itemized', amount: -(limitedBefore - limitedAfter), only: 'federal', note: 'Below the cap, so the itemized rate applies to the part that is no longer capped.' },
+        { cat: 'itemized', amount: -(limitedBefore - limitedAfter), only: 'federal', note: 'Only the part no longer capped changes the federal deduction.' },
         { cat: 'salt', amount: -Number(credit.value), only: 'california' },
       ],
     }],
-    method: 'Matches the escrow-paid bill to the buyer closing statement\'s tax proration.',
+    method: "Matches the escrow-paid bill to the buyer closing statement's tax proration.",
   }]
 }
 
@@ -410,15 +449,17 @@ function mortgagePayoffInterest(m: Model): Finding[] {
   if (!mi) return []
   const payoff = mi.sources.map((s) => m.ev.get(s)).find((e) => e && m.docById.get(e.document_id)?.document_type === 'payoff_statement')
   if (!payoff) return []
-  const f1098 = m.docs.find((d) => d.document_type === '1098' && /payoff/i.test(pageText(m, d.id)) && /includes/i.test(pageText(m, d.id)))
+  const cited = new Set(mi.sources.map((s) => m.ev.get(s)?.document_id))
+  const f1098 = m.docs.find((d) => d.document_type === '1098' && cited.has(d.id) && /payoff/i.test(pageText(m, d.id)) && /includes/i.test(pageText(m, d.id)))
   if (!f1098) return []
+  const box1 = (m.evByDoc.get(f1098.id) ?? []).find((e) => e.field === 'box1')
   return [{
     id: 'mortgage-payoff-double', title: 'Payoff interest added on top of a 1098 that already includes it',
     area: 'deductions', severity: 'error', kind: 'engine',
-    summary: `Lonestar's 1098 box 1 (13,900) already includes the interest paid at payoff on 11/20, and the payoff statement says so. Adding the payoff statement's ${fmt(Number(payoff.value))} counts it twice.`,
+    summary: `${f1098.issuer}'s Form 1098 box 1${box1 ? ` (${fmt(Number(box1.value))})` : ''} already includes the interest paid at payoff, and the payoff statement says so. Adding the payoff statement's ${fmt(Number(payoff.value))} counts it twice.`,
     facts: [
-      { text: `${f1098.id}: "${pageText(m, f1098.id).match(/Box 1[^.]*\([^)]*\)/)?.[0] ?? ''}"`, refs: [f1098.id] },
-      { text: `${payoff.document_id}: "${pageText(m, payoff.document_id).match(/\(Interest[^)]*\)/)?.[0] ?? ''}"`, refs: [payoff.id] },
+      { text: `${f1098.id}: "${pageText(m, f1098.id).match(/Box 1[^.]*\([^)]*\)/)?.[0] ?? pageText(m, f1098.id).slice(0, 120)}"`, refs: [box1?.id ?? f1098.id] },
+      { text: `${payoff.document_id}: "${pageText(m, payoff.document_id).match(/\([^)]*\)/)?.[0] ?? ''}"`, refs: [payoff.id] },
     ],
     lines: ['SchA.8a'], refs: [payoff.id],
     proposals: [{ kind: 'line', lineKey: 'SchA.8a', to: Number(mi.value) - Number(payoff.value), reason: `Payoff interest is inside ${f1098.id} box 1.`, effects: [{ cat: 'itemized', amount: -Number(payoff.value) }] }],
@@ -427,46 +468,53 @@ function mortgagePayoffInterest(m: Model): Finding[] {
 }
 
 function vehicleDonation(m: Model): Finding[] {
-  const v = line(m, 'F8283.A1.vehicle')
-  const c = m.docs.find((d) => d.document_type === '1098-C')
-  if (!v || !c) return []
-  const sold = (m.evByDoc.get(c.id) ?? []).find((e) => e.field === 'box4c')
-  if (!sold || Number(sold.value) >= Number(v.value)) return []
-  const diff = Number(v.value) - Number(sold.value)
-  return [{
-    id: 'vehicle-gross-proceeds', title: 'Donated car deducted at its blue-book value',
-    area: 'deductions', severity: 'error', kind: 'engine',
-    summary: `The charity sold the Subaru for ${fmt(Number(sold.value))} (Form 1098-C box 4c). When a donated vehicle is sold, the deduction is limited to the gross proceeds. The engine used the client's estimate of ${fmt(Number(v.value))}.`,
-    facts: [
-      { text: `${c.id}: "${pageText(m, c.id).match(/Box 4a[^.]*\./)?.[0] ?? ''}"`, refs: [sold.id] },
-      { text: 'Client: "Kelley Blue Book said about 6,000."', refs: ['qa-39'] },
-      { text: 'Noncash gifts on Schedule A line 12 are the first item the IRS examines in January 2028.', refs: ['D72'] },
-    ],
-    lines: ['F8283.A1.vehicle', 'SchA.12'], refs: [sold.id],
-    proposals: [{ kind: 'line', lineKey: 'F8283.A1.vehicle', to: Number(sold.value), reason: `Limited to gross proceeds (${c.id} box 4c).`, effects: [{ cat: 'itemized', amount: -diff }] }],
-    method: 'Compares the claimed value with the charity\'s reported sale price.',
-  }]
+  const out: Finding[] = []
+  for (const c of m.docs.filter((d) => d.document_type === '1098-C')) {
+    const sold = (m.evByDoc.get(c.id) ?? []).find((e) => e.field === 'box4c')
+    const v = m.current.lines.find((l) => l.form === 'F8283' && l.sources.some((s) => m.ev.get(s)?.document_id === c.id))
+    if (!sold || !v || Number(sold.value) >= Number(v.value)) continue
+    const diff = Number(v.value) - Number(sold.value)
+    const quote = v.sources.map((s) => m.packet.client.questionnaire.find((q) => q.id === s)).find(Boolean)
+    const exam = noticeItem(m, /noncash/i)
+    out.push({
+      id: 'vehicle-gross-proceeds', title: 'Donated vehicle deducted above its sale price',
+      area: 'deductions', severity: 'error', kind: 'engine',
+      summary: `The charity sold the vehicle for ${fmt(Number(sold.value))} (Form 1098-C box 4c). When a donated vehicle is sold, the deduction is limited to the gross proceeds. The return claims ${fmt(Number(v.value))}.`,
+      facts: [
+        { text: `${c.id}: "${pageText(m, c.id).match(/Box 4a[^.]*\./)?.[0] ?? pageText(m, c.id).slice(0, 140)}"`, refs: [sold.id] },
+        ...(quote ? [{ text: `Value claimed comes from the client: "${quote.answer}"`, refs: [quote.id] }] : []),
+        ...(exam ? [{ text: `Later examined: "${exam.item}"`, refs: [exam.notice.document] }] : []),
+      ],
+      lines: [v.key, 'SchA.12'], refs: [sold.id],
+      proposals: [{ kind: 'line', lineKey: v.key, to: Number(sold.value), reason: `Limited to gross proceeds (${c.id} box 4c).`, effects: [{ cat: 'itemized', amount: -diff }] }],
+      method: "Compares the claimed value with the charity's reported sale price.",
+    })
+  }
+  return out
 }
 
 function federalEstimates(m: Model): Finding[] {
   const est = line(m, 'F1040.26')
   const tr = m.packet.tax_agency_records.irs_account_transcript_2025[0]
   if (!est || !tr) return []
-  const paid = tr.transactions.filter((t) => t.code === '670').reduce((s, t) => s + Number(t.amount), 0)
+  const paid = tr.transactions.filter((t) => t.code === '670' && typeof t.amount === 'number').reduce((s, t) => s + Number(t.amount), 0)
   if (paid === Number(est.value)) return []
-  const q = m.packet.client.questionnaire.find((x) => /4th quarter/i.test(x.question))
+  const recon = paymentsRecon(m, 'federal')
+  const off = recon.rows.filter((r) => r.agency !== (r.client ?? r.confirmations.reduce((s, c) => s + c.amount, 0)) || r.agency == null)
+  const unconfirmed = recon.rows.filter((r) => r.agency != null && !r.confirmations.length)
   return [{
-    id: 'fed-estimates-transcript', title: 'Fourth federal estimate taken from the client\'s memory, not the IRS record',
+    id: 'fed-estimates-transcript', title: "Federal estimates don't agree to the IRS record",
     area: 'payments', severity: 'error', kind: 'conflict',
-    summary: `The return claims ${fmt(Number(est.value))} of estimates. The IRS account transcript shows ${fmt(paid)}: the January payment was 3,000 on 01/15/2026, not "4,000 I think" on 01/14.`,
+    summary: `The return claims ${fmt(Number(est.value))} of estimated payments; the IRS account transcript shows ${fmt(paid)}. ${off.map((r) => `${r.date}: ${r.client != null ? `client said ${fmt(r.client)}` : r.confirmations.length ? `confirmations ${fmt(r.confirmations.reduce((s, c) => s + c.amount, 0))}` : 'no confirmation'}, IRS ${r.agency != null ? fmt(r.agency) : 'none'}`).join('; ')}.`,
     facts: [
-      ...(q ? [{ text: `${q.id}: "${q.answer}"`, refs: [q.id] }] : []),
-      { text: `IRS transcript as of ${tr.as_of}: ${tr.transactions.map((t) => `${t.date} ${fmt(Number(t.amount))}`).join('; ')}.`, refs: ['agency:/irs_account_transcript_2025/0'] },
-      { text: 'EFTPS confirmations cover only the first three payments.', refs: ['D67'] },
+      ...(recon.question ? [{ text: `${recon.question.id}: "${recon.question.answer}"`, refs: [recon.question.id] }] : []),
+      { text: `IRS transcript as of ${tr.as_of}: ${tr.transactions.filter((t) => t.code === '670').map((t) => `${t.date} ${fmt(Number(t.amount))}`).join('; ')}.`, refs: ['agency:/irs_account_transcript_2025/0'] },
+      ...(unconfirmed.length ? [{ text: `No payment confirmation in file for ${unconfirmed.map((r) => r.date).join(', ')}.` }] : []),
+      ...(est.note ? [{ text: `Engine: ${est.note}` }] : []),
     ],
     lines: ['F1040.26'], refs: ['agency:/irs_account_transcript_2025/0'],
     proposals: [{ kind: 'line', lineKey: 'F1040.26', to: paid, reason: 'Agreed to IRS account transcript (code 670 payments).', effects: [{ cat: 'fed_payment', amount: paid - Number(est.value) }] }],
-    method: 'Agrees estimated payments to the IRS transcript instead of to the questionnaire.',
+    method: 'Agrees estimated payments to the IRS transcript, not to the questionnaire or confirmations.',
   }]
 }
 
@@ -476,54 +524,64 @@ function caEstimates(m: Model): Finding[] {
   if (!est || !ftb) return []
   const paid = ftb.tax_year_2025_payments.reduce((s, p) => s + p.amount, 0)
   if (paid === Number(est.value)) return []
-  const misapplied = ftb.tax_year_2024_payments_after_filing[0]
+  const held = ftb.tax_year_2024_payments_after_filing
+  const recon = paymentsRecon(m, 'california')
+  const wrongYear = recon.rows.flatMap((r) => r.confirmations.filter((c) => c.year && c.year !== String(m.packet.household.tax_year) && held.some((h) => h.date === r.date)).map((c) => ({ ...c, date: r.date })))
   return [{
-    id: 'ca-estimate-wrong-year', title: 'A California estimate was designated to 2024',
+    id: 'ca-estimate-wrong-year', title: 'A state estimate was applied to another tax year',
     area: 'payments', severity: 'error', kind: 'conflict',
-    summary: `The return claims ${fmt(Number(est.value))} of 2025 California estimates. FTB has ${fmt(paid)}: the 09/15/2025 payment of ${fmt(misapplied?.amount ?? 0)} was entered in Web Pay as tax year 2024 and FTB is holding it as a 2024 credit.`,
+    summary: `The return claims ${fmt(Number(est.value))} of state estimates; the agency account shows ${fmt(paid)} for ${m.packet.household.tax_year}. ${held.map((h) => `The ${h.date} payment of ${fmt(h.amount)} is held elsewhere: ${h.note}`).join(' ')}`,
     facts: [
-      { text: `FTB account: ${misapplied?.note}`, refs: ['agency:/ftb_account'] },
-      { text: 'Web Pay confirmation shows "tax year 2024 (estimated payment)" for 2025-09-15.', refs: ['D68'] },
-      { text: 'Options: claim 10,500 now and ask FTB to transfer the 2024 credit, or claim the 2024 overpayment as a refund. Either way the return should agree to FTB.' },
+      ...held.map((h) => ({ text: `Agency account: ${h.date} ${fmt(h.amount)}: ${h.note}`, refs: ['agency:/ftb_account'] })),
+      ...wrongYear.map((c) => ({ text: `Payment confirmation for ${c.date}: designated tax year ${c.year}.`, refs: [c.evId] })),
+      { text: `Options: claim ${fmt(paid)} now and ask the agency to transfer the credit, or claim the other year's overpayment as a refund. Either way the return must agree to the agency record.` },
     ],
     lines: ['F540NR.72'], refs: ['agency:/ftb_account'],
-    proposals: [{ kind: 'line', lineKey: 'F540NR.72', to: paid, reason: 'Agreed to FTB account (2025 payments).', effects: [{ cat: 'ca_payment', amount: paid - Number(est.value) }] }],
-    method: 'Agrees California estimates to the FTB account, not to the payment confirmations.',
+    proposals: [{ kind: 'line', lineKey: 'F540NR.72', to: paid, reason: 'Agreed to the state agency account.', effects: [{ cat: 'ca_payment', amount: paid - Number(est.value) }] }],
+    method: 'Agrees state estimates to the agency account, not to the payment confirmations.',
   }]
 }
 
 function caSourceWages(m: Model): Finding[] {
   const ca = line(m, 'SchCA540NR.1.E')
-  const stub = m.docs.find((d) => d.document_type === 'paystub')
-  if (!ca || !stub) return []
-  const stubCa = (m.evByDoc.get(stub.id) ?? []).find((e) => e.field === 'ytd_ca_wages')
-  const corvane = m.docs.find((d) => d.document_type === 'W-2' && /Corvane/.test(d.title))
-  const halv = m.docs.find((d) => d.document_type === 'W-2' && /Halvorsen/.test(d.title) && !/photo/i.test(d.title))
-  if (!stubCa || !corvane || !halv) return []
-  const cBox16 = (m.evByDoc.get(corvane.id) ?? []).find((e) => e.field === 'box16')
-  const hBox16 = (m.evByDoc.get(halv.id) ?? []).find((e) => e.field === 'box16')
-  if (!cBox16 || !hBox16) return []
-  const right = Number(cBox16.value) + Number(stubCa.value)
-  const delta = right - Number(ca.value)
+  const fedWages = line(m, 'F1040.1a')
+  if (!ca || !fedWages) return []
+  const w2s = [...new Set(fedWages.sources.map((s) => m.ev.get(s)?.document_id).filter(Boolean) as string[])].map((id) => m.docById.get(id)!)
+  const residencyEnd = m.packet.household.residency.find((r) => r.status === 'resident' && /CA/.test(r.state))?.to
+  const facts: Fact[] = []
+  let right = 0
+  for (const d of w2s) {
+    const box16 = (m.evByDoc.get(d.id) ?? []).find((e) => e.field === 'box16')
+    if (!box16) continue
+    const employer = d.issuer.split(/[ ,]/)[0]
+    const stub = m.docs.find((x) => x.document_type === 'paystub' && x.title.includes(employer))
+    const stubCa = stub ? (m.evByDoc.get(stub.id) ?? []).find((e) => e.field === 'ytd_ca_wages') : undefined
+    const note = pageText(m, d.id).match(/\(([^)]*)\)|Employment (ended|began)[^.]*\./)?.[0]
+    if (stubCa) {
+      right += Number(stubCa.value)
+      facts.push({ text: `${d.issuer}: box 16 ${fmt(Number(box16.value))}${note ? ` ${note}` : ''}. Paystub at the move shows state wages ${fmt(Number(stubCa.value))}: "${pageText(m, stub!.id).match(/Work location[^.]*\./)?.[0] ?? ''}"`, refs: [box16.id, stubCa.id] })
+    } else {
+      right += Number(box16.value)
+      facts.push({ text: `${d.issuer}: box 16 ${fmt(Number(box16.value))} earned while resident${note ? ` (${note.replace(/[()]/g, '')})` : ''}.`, refs: [box16.id] })
+    }
+  }
+  if (!right || right === Number(ca.value)) return []
+  const q = m.packet.client.questionnaire.find((x) => /withhold/i.test(x.answer) && /state|California/i.test(x.answer))
+  if (q) facts.push({ text: `Client: "${q.answer}"`, refs: [q.id] })
   return [{
-    id: 'ca-source-wages', title: 'California taxes Texas wages',
+    id: 'ca-source-wages', title: 'State taxes wages earned after the move',
     area: 'california', severity: 'error', kind: 'engine',
-    summary: `California-source wages use every dollar of both W-2s' box 16 (${fmt(Number(ca.value))}). Halvorsen kept California as the work state through September by mistake. Ngozi moved on 07/14, and her paystub shows California wages of ${fmt(Number(stubCa.value))} at the move. California-source wages are ${fmt(right)}.`,
-    facts: [
-      { text: `Halvorsen W-2: "${pageText(m, halv.id).match(/\(Employment[^)]*\)/)?.[0] ?? ''}"`, refs: [hBox16.id] },
-      { text: `Paystub ${stub.id}: work location Austin from 07/15; YTD CA taxable wages ${fmt(Number(stubCa.value))}.`, refs: [stubCa.id] },
-      { text: 'Client: "Ngozi\'s new employer kept withholding California tax until September by mistake."', refs: ['qa-45'] },
-      { text: `Corvane box 16 ${fmt(Number(cBox16.value))} is all California (employment ended 05/16) + Halvorsen to the move ${fmt(Number(stubCa.value))} = ${fmt(right)}.` },
-    ],
-    lines: ['SchCA540NR.1.E'], refs: [stubCa.id, hBox16.id],
-    proposals: [{ kind: 'line', lineKey: 'SchCA540NR.1.E', to: right, reason: 'California-source wages: Corvane box 16 plus Halvorsen wages through the 07/14 move (paystub).', effects: [{ cat: 'ca_source_income', amount: delta }] }],
-    method: 'Rebuilds the California wage split from residency dates and the paystub instead of box 16.',
+    summary: `State-source wages use every dollar of box 16 (${fmt(Number(ca.value))}). Residency ended ${residencyEnd}; wages earned after that are not state-source. Rebuilt from each employer's records: ${fmt(right)}.`,
+    facts, lines: ['SchCA540NR.1.E'], refs: facts.flatMap((f) => f.refs ?? []),
+    proposals: [{ kind: 'line', lineKey: 'SchCA540NR.1.E', to: right, reason: 'State-source wages rebuilt per employer: box 16 while resident, paystub state wages at the move.', effects: [{ cat: 'ca_source_income', amount: right - Number(ca.value) }] }],
+    method: 'Rebuilds the state wage split from residency dates and payroll records instead of box 16.',
   }]
 }
 
 function dependentSsn(m: Model): Finding[] {
   const out: Finding[] = []
   const py = m.packet.prior_years.return_2024.dependents
+  const priorDoc = m.docs.find((d) => d.document_type === 'prior_year_return')?.id ?? 'py:/return_2024/dependents'
   for (const p of m.packet.household.people.filter((x) => x.role === 'dependent')) {
     const prior = py.find((d) => d.name === p.name)
     if (!prior || prior.ssn === p.ssn) continue
@@ -534,13 +592,27 @@ function dependentSsn(m: Model): Finding[] {
       summary: `The organizer has ${p.ssn}; the 2024 return as filed has ${prior.ssn}. Two digits are transposed. A wrong dependent SSN rejects the e-file (IRS R0000-504-02) and loses the child tax credit.`,
       facts: [
         { text: `Organizer (entered by ${m.packet.household.entered_by}): ${p.ssn}`, refs: [`household:${p.id}`] },
-        { text: `2024 Form 1040 dependents: ${prior.ssn}`, refs: ['D06'] },
+        { text: `Prior-year return as filed: ${prior.ssn}`, refs: [priorDoc] },
         ...(card ? [{ text: `Social Security card (received ${card.received_at.slice(0, 10)}): ${pageText(m, card.id)}`, refs: [card.id] }] : [{ text: 'Ask the client for the Social Security card.' }]),
       ],
-      lines: ['F8812.4'], refs: [`household:${p.id}`, 'D06'],
+      lines: ['F8812.4'], refs: [`household:${p.id}`, priorDoc],
       proposals: [{ kind: 'household', personId: p.id, field: 'ssn', to: prior.ssn, reason: 'Agrees to 2024 return as filed (and SS card when received).' }],
       method: 'Compares every SSN on the organizer with the prior-year return as filed.',
     })
+  }
+  return out
+}
+
+/** Provider names on Form 2441 lines vs the names printed on the care statements. */
+function providerNameFacts(m: Model, docId: string): Fact[] {
+  const out: Fact[] = []
+  const d = m.docById.get(docId)
+  if (d?.document_type !== 'dependent_care_statement') return out
+  for (const s of m.docs.filter((x) => x.document_type === 'dependent_care_statement')) {
+    const printed = pageText(m, s.id).split(',')[0].trim()
+    const l = m.current.lines.find((x) => x.form === 'F2441' && x.sources.some((src) => m.ev.get(src)?.document_id === s.id))
+    const named = l?.label.match(/provider:\s*([^,]+)/i)?.[1]?.trim()
+    if (named && printed && named !== printed) out.push({ text: `${l!.key} names the provider "${named}"; the statement prints "${printed}".`, refs: [s.id, l!.key] })
   }
   return out
 }
@@ -565,7 +637,7 @@ function extractionMismatch(m: Model): Finding[] {
       facts: [
         { text: `Printed: "${text}"`, refs: [e.id] },
         ...lineByEin.map((l) => ({ text: `Carried into ${l.key}: "${l.label}"`, refs: [l.key] })),
-        ...(e.document_id === 'D62' ? [{ text: 'Form 2441 also names the first provider "Bright Oak Preschool"; its statement and the 2024 return say "Bright Oak Kids Club".', refs: ['D61', 'py:/return_2024/lines/F2441.provider'] }] : []),
+        ...providerNameFacts(m, e.document_id),
       ],
       lines: [...usedIn, ...lineByEin.map((l) => l.key)], refs: [e.id],
       proposals: printed ? [{ kind: 'extraction', evId: e.id, to: printed, reason: `Agrees to printed ${e.document_id} page ${e.page}.` }] : [],
@@ -576,72 +648,91 @@ function extractionMismatch(m: Model): Finding[] {
 }
 
 function iraBasisConflict(m: Model): Finding[] {
-  const q = m.packet.client.questionnaire.find((x) => /IRA details/i.test(x.question))
+  const q = m.packet.client.questionnaire.find((x) => /IRA/i.test(x.question) && /basis/i.test(x.question + x.answer))
   const l2 = line(m, 'F8606.2')
-  if (!q || !l2 || !/none/i.test(q.answer)) return []
+  if (!q || !l2 || !Number(l2.value) || !/none|no prior|don't|do not/i.test(q.answer)) return []
+  const converted = line(m, 'F8606.16'), taxable = line(m, 'F8606.18')
+  const ev5498 = l2.sources.map((s) => m.ev.get(s)).find(Boolean)
   return [{
-    id: 'ira-basis-client', title: 'Client says there is no prior IRA basis; the documents say 7,000',
+    id: 'ira-basis-client', title: `Client says there is no prior IRA basis; the records say ${fmt(Number(l2.value))}`,
     area: 'retirement', severity: 'info', kind: 'conflict',
-    summary: 'The engine correctly carried 7,000 of basis from the 2024 Form 8606 (the 2024 contribution was made 02/12/2025). The client\'s answer is wrong; without the carried basis the conversion would be taxed on 7,026 instead of 26.',
+    summary: `The engine carried ${fmt(Number(l2.value))} of basis from the prior Form 8606. The client's answer is wrong; without the carried basis the conversion would be taxed on ${fmt(Number(taxable?.value ?? 0) + Number(l2.value))} instead of ${fmt(Number(taxable?.value ?? 0))}${converted ? ` (of ${fmt(Number(converted.value))} converted)` : ''}.`,
     facts: [
       { text: `${q.id}: "${q.answer}"`, refs: [q.id] },
-      { text: 'Form 5498 for 2024: 7,000 contributed 02/12/2025 for tax year 2024.', refs: ['D42'] },
-      { text: '2024 Form 8606 line 14: basis 7,000. Prior preparer left "5498 not obtained" open; it is now in file.', refs: ['py:/return_2024/lines/F8606.14', 'D07'] },
+      ...(ev5498 ? [{ text: `${m.docById.get(ev5498.document_id)?.title}: ${ev5498.label} ${fmt(Number(ev5498.value))}.`, refs: [ev5498.id] }] : []),
+      ...l2.sources.filter((s) => s.startsWith('py:')).map((s) => ({ text: `Prior-year record ${s.replace('py:/', '')}.`, refs: [s] })),
     ],
-    lines: ['F8606.2', 'F1040.4b'], refs: [q.id, 'D42'], proposals: [],
+    lines: ['F8606.2', 'F1040.4b'], refs: [q.id], proposals: [],
     method: 'Compares client answers with documents and the prior return.',
   }]
 }
 
 function sepExcess(m: Model): Finding[] {
   const ex = Number(m.current.carryovers_out.federal.sep_contribution_not_deductible_for_2025 ?? 0)
-  if (!ex) return []
+  const ded = line(m, 'Sch1.16')
+  if (!ex || !ded) return []
+  const conf = ded.sources.map((s) => m.ev.get(s)).find(Boolean)
+  const date = conf ? (m.evByDoc.get(conf.document_id) ?? []).find((e) => e.value_type === 'date') : undefined
   return [{
     id: 'sep-excess', title: 'SEP contribution exceeds the deductible limit',
     area: 'retirement', severity: 'warning', kind: 'judgment',
-    summary: `Erik deposited 18,000 on 04/10/2026; the limit at current profit is 15,214. The ${fmt(ex)} excess is subject to a 6% excise each year until withdrawn. Note that the Schedule C fixes raise profit and therefore the limit.`,
+    summary: `${conf ? `${fmt(Number(conf.value))} was contributed${date ? ` on ${date.value}` : ''}; ` : ''}the deductible limit at current profit is ${fmt(Number(ded.value))}. The ${fmt(ex)} excess is subject to a 6% excise each year until withdrawn. Business-income corrections change the limit.`,
     facts: [
-      { text: 'SEP confirmation: 18,000 deposited 04/10/2026 for 2025.', refs: ['D26'] },
-      { text: 'Sch1.16 note: limit 20% × (net profit − ½ SE tax).', refs: ['Sch1.16'] },
+      ...(conf ? [{ text: `${m.docById.get(conf.document_id)?.title}: ${conf.label} ${fmt(Number(conf.value))}.`, refs: [conf.id] }] : []),
+      ...(ded.note ? [{ text: `Engine: ${ded.note}`, refs: ['Sch1.16'] }] : []),
     ],
-    lines: ['Sch1.16'], refs: ['D26'], proposals: [],
-    method: 'Reads the engine\'s carryover of the nondeductible SEP amount and treats it as a client decision.',
+    lines: ['Sch1.16'], refs: conf ? [conf.document_id] : [], proposals: [],
+    method: "Reads the engine's carryover of the nondeductible amount and treats it as a client decision.",
   }]
 }
 
 function outsideFilings(m: Model): Finding[] {
   const out: Finding[] = []
-  const memo = m.packet.prior_years.prior_preparer_workpaper.open_items_left_by_prior_preparer
-  const f3520 = memo.find((x) => /3520/.test(x))
-  if (f3520) out.push({
-    id: 'form-3520-2023', title: 'Possible unfiled Form 3520 for the 2023 Swedish inheritance',
+  const pw = m.packet.prior_years.prior_preparer_workpaper
+  const item = pw.open_items_left_by_prior_preparer.find((x) => /3520/.test(x))
+  if (!item) return out
+  const stmt = m.docs.find((d) => d.document_type === 'foreign_bank_statement')
+  const inherit = stmt ? pageText(m, stmt.id).split(/(?<=\.)\s/).find((s) => /inherit/i.test(s)) : undefined
+  const max = stmt ? (m.evByDoc.get(stmt.id) ?? []).find((e) => /max/.test(e.field)) : undefined
+  const fx = m.packet.fx_rates?.SEK_per_USD?.['2025_year_end']
+  const q = m.packet.client.questionnaire.find((x) => /gift or inheritance/i.test(x.question))
+  out.push({
+    id: 'form-3520', title: 'Possible unfiled Form 3520 for a foreign inheritance',
     area: 'foreign', severity: 'warning', kind: 'outside',
-    summary: 'Erik inherited the Sparbanken account from his mother in 09/2023 (peak 2025 balance SEK 1.45m ≈ 150,000 USD). A gift or bequest over 100,000 from a foreign person requires Form 3520. The prior preparer flagged it and never closed it. The 2025 questionnaire only asked about 2025.',
+    summary: `A bequest over 100,000 USD from a foreign person requires Form 3520. The prior preparer raised it and never closed it${max && fx ? `; the account's peak balance is about ${fmt(Math.round(Number(max.value) / fx))} USD` : ''}.${q ? ` This year's questionnaire asked only about ${m.packet.household.tax_year}.` : ''}`,
     facts: [
-      { text: `Prior preparer open item: "${f3520}"`, refs: ['D07'] },
-      { text: 'Statement: "Account opened 09/2023 (inheritance from Birgitta Lindqvist)."', refs: ['D36'] },
-      { text: 'qa-08 asked only about 2025.', refs: ['qa-08'] },
+      { text: `Prior preparer open item: "${item}"`, refs: [pw.source_document] },
+      ...(inherit ? [{ text: `Statement: "${inherit}"`, refs: [stmt!.id] }] : []),
+      ...(q ? [{ text: `${q.id}: "${q.question}" → "${q.answer}"`, refs: [q.id] }] : []),
     ],
-    lines: [], refs: ['D07', 'D36'], proposals: [],
-    method: 'Carries every open item from the prior preparer into this year\'s file.',
+    lines: [], refs: [pw.source_document, ...(stmt ? [stmt.id] : [])], proposals: [],
+    method: "Carries every open item from the prior preparer's file into this year.",
   })
   return out
 }
 
 function priorHomeOffice(m: Model): Finding[] {
   const py = Number(m.priorLines['SchC.30'])
-  if (!py) return []
+  const cur = line(m, 'SchC.30')
+  const note = m.packet.prior_years.return_2024.notes['SchC.30'] ?? ''
+  const pySqft = Number(note.match(/(\d+)\s*sq/i)?.[1] ?? NaN)
+  const measure = cur?.sources.map((s) => m.ev.get(s)).filter((e) => e && /sqft/.test(e.field)) ?? []
+  const rate = Number(m.packet.engine_reference.parameters.home_office_rate)
+  if (!py || Number.isNaN(pySqft) || !measure.length) return []
+  const first = Number(measure[0]!.value)
+  if (first >= pySqft) return []
+  const memo = m.packet.prior_years.prior_preparer_workpaper.notes.find((n) => /home office/i.test(n))
   return [{
-    id: 'prior-home-office', title: 'Last year\'s home office used 300 sq ft; the room is 220',
+    id: 'prior-home-office', title: `Prior year's home office used ${pySqft} sq ft; the measured room is ${first}`,
     area: 'business', severity: 'info', kind: 'judgment',
-    summary: 'The prior preparer used 300 sq ft (noting "2 rooms combined?"). The client\'s measurements show a single 220 sq ft studio in Sacramento. 2024 overstated the deduction by 400. That is below an amendment threshold, but record the decision.',
+    summary: `The prior return used ${pySqft} sq ft. The client's measurements give ${first} sq ft for the same home. The prior year was overstated by about ${fmt((pySqft - first) * rate)}. That is likely under an amendment threshold, but record the decision.`,
     facts: [
-      { text: 'Prior preparer: "Home office 300 sq ft (Sacramento rental house, 2 rooms combined?) - client to confirm."', refs: ['D07'] },
-      { text: 'Client note: 11 × 20 ft = 220 sq ft, used exclusively January–mid-July.', refs: ['D24'] },
+      ...(memo ? [{ text: `Prior preparer: "${memo}"`, refs: [m.packet.prior_years.prior_preparer_workpaper.source_document] }] : []),
+      { text: `Client measurement: "${pageText(m, measure[0]!.document_id).split(/(?<=\.)\s/)[0]}"`, refs: measure.map((e) => e!.id) },
     ],
-    lines: ['SchC.30'], refs: ['D24', 'D07'], proposals: [],
+    lines: ['SchC.30'], refs: [measure[0]!.document_id], proposals: [],
     engineDiagnostic: 'HOME_OFFICE_AREA_CHANGE',
-    method: 'Compares this year\'s measured area with the prior preparer\'s figure.',
+    method: "Compares this year's measured area with the prior return.",
   }]
 }
 

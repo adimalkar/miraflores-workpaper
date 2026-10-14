@@ -11,7 +11,7 @@ const GROUPS: { name: string; types: string[] }[] = [
   { name: 'Engagement & identity', types: ['engagement_letter', 'consent_7216', 'irs_ip_pin_notice', 'identity_document'] },
   { name: 'Prior year', types: ['prior_year_return', 'prior_workpaper', 'irs_notice'] },
   { name: 'Wages & stock compensation', types: ['W-2', 'stock_plan_supplement', '3921', '3922', 'paystub'] },
-  { name: 'Lindqvist Studio', types: ['books_profit_loss', 'books_transaction_detail', '1099-NEC', '1099-K', 'invoice', 'mileage_log', 'client_note', 'insurance_statement', 'retirement_contribution', 'books_report'] },
+  { name: 'Business', types: ['books_profit_loss', 'books_transaction_detail', '1099-NEC', '1099-K', 'invoice', 'mileage_log', 'client_note', 'insurance_statement', 'retirement_contribution', 'books_report'] },
   { name: 'Investments & crypto', types: ['1099-composite', '1099-INT', '1099-DA', 'transaction_export'] },
   { name: 'Foreign', types: ['foreign_bank_statement'] },
   { name: 'Pass-throughs', types: ['K-1-1065', 'K-1-state-supplement', 'K-1-1120S'] },
@@ -34,7 +34,7 @@ export function Documents({ focus }: { focus?: string }) {
     const disp = w.dispositions.get(d.id)
     if (m.current.documents_used.includes(d.id)) return { label: 'Used', tone: 'tick' as const, ok: true, why: undefined as string | undefined }
     if (disp) return { label: disp.status.replace('-', ' '), tone: 'neutral' as const, ok: true, why: disp.reason }
-    if (m.current.documents_superseded.includes(d.id)) return { label: 'Superseded', tone: 'neutral' as const, ok: true, why: 'Replaced by the corrected 1099 (D31).' }
+    if (m.current.documents_superseded.includes(d.id)) return { label: 'Superseded', tone: 'neutral' as const, ok: true, why: (() => { const c = m.docs.find((x) => x.marked_corrected && x.issuer === d.issuer && x.id !== d.id); return c ? `Replaced by the corrected document ${c.id}.` : 'Replaced by a later document.' })() }
     return { label: 'Unaccounted', tone: 'pencil' as const, ok: false, why: 'Not used by the engine and no reason recorded.' }
   }
   const accounted = m.docs.filter((d) => status(d).ok).length

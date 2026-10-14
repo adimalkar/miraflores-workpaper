@@ -11,6 +11,10 @@ import { AREAS } from '../data/areas'
 import type { WPEvent } from '../store/events'
 import { newId } from '../store/events'
 import { SAMPLE } from '../data/sample'
+import { sensitiveFields, returnForms } from '../data/derived'
+import { validatePacket } from '../data/model'
+import { set as idbSet, del as idbDel } from 'idb-keyval'
+import { PACKET_OVERRIDE_KEY } from '../store/store'
 import { snapshotFor } from '../store/derive'
 
 export function Firm({ tab }: { tab?: string }) {
@@ -79,12 +83,7 @@ function Access() {
   const perms = usePerms()
   const record = useStore((s) => s.record)
   const [shown, setShown] = useState<Record<string, boolean>>({})
-  const sensitive = [
-    ...m.packet.household.people.map((p) => ({ id: `ssn:${p.id}`, label: `${p.name} · SSN`, value: w.ssnFix.get(p.id) ?? p.ssn })),
-    { id: 'ip_pin:ngozi', label: 'Ngozi · IP PIN', value: m.packet.household.people[0].ip_pin ?? '' },
-    { id: 'bank', label: 'Refund account (ACCU)', value: m.packet.household.bank_account_for_refund_or_payment.account },
-    { id: 'foreign', label: 'Sparbanken IBAN', value: 'SE45 8000 0000 0412 7783 9901' },
-  ]
+  const sensitive = sensitiveFields(m, w)
   const reveal = (id: string, label: string) => {
     if (!perms.clearance) return
     record({ kind: 'view.sensitive', field: id, subject: label })
@@ -135,7 +134,7 @@ function Status() {
           <thead className="bg-ink-50/70 text-2xs uppercase tracking-wider text-ink-400"><tr><th className="py-2 pl-4 text-left font-medium">Client</th><th className="text-left font-medium">Return</th><th className="text-left font-medium">Stage</th><th className="text-left font-medium">Open items</th><th className="text-left font-medium">Team</th><th className="pr-4 text-left font-medium">Hours</th></tr></thead>
           <tbody><tr className="border-t border-ink-100">
             <td className="py-3 pl-4 font-medium">{m.packet.packet.name.split(' - ')[0]} <span className="num text-2xs text-ink-400">{m.packet.packet.client_id}</span></td>
-            <td>1040 + 540NR · 2025</td>
+            <td>{returnForms(m)} · {m.packet.household.tax_year}</td>
             <td><Chip tone={r.ready ? 'tick' : 'amber'}>{r.stage}</Chip></td>
             <td className="text-xs">{r.blockers.filter((b) => !b.done).map((b) => b.label).join(' · ') || 'None'}</td>
             <td className="text-xs">{personName(m, m.packet.firm.assignment_at_start.preparer)}, {personName(m, m.packet.firm.assignment_at_start.reviewer)}, {personName(m, m.packet.firm.assignment_at_start.partner)}</td>
@@ -164,6 +163,8 @@ function RecordTab() {
   const reset = useStore((s) => s.resetAll)
   const importEvents = useStore((s) => s.importEvents)
   const [confirm, setConfirm] = useState(false)
+  const custom = useStore((s) => s.customPacket)
+  const [packetError, setPacketError] = useState<string | null>(null)
   const filed = [...w.filing].reverse().find((f) => f.action === 'efile-accepted')
   const destroy = filed ? new Date(new Date(filed.at).getTime() + 7 * 365.25 * 86400000).toISOString().slice(0, 10) : 'seven years after filing'
   const exportLog = () => {
@@ -182,7 +183,27 @@ function RecordTab() {
           <Button icon={<Download size={14} />} onClick={exportLog}>Export event log</Button>
           <label className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-medium ring-1 ring-ink-200 hover:bg-ink-50"><Upload size={14} /> Import<input type="file" accept="application/json" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (!f) return; const j = JSON.parse(await f.text()); importEvents((j.events ?? j) as WPEvent[]) }} /></label>
           <Button variant="ghost" icon={<RotateCcw size={14} />} disabled={!perms.canAdmin && perms.role !== 'partner'} onClick={() => setConfirm(true)}>Reset demo</Button>
-          <Button variant="ghost" onClick={() => {
+        </div>
+        <div className="mt-5 border-t border-ink-100 pt-4">
+          <h4 className="display text-sm font-semibold">Packet</h4>
+          <p className="mt-1 text-xs text-ink-600">{custom ? `A custom packet is open (${m.packet.packet.name}). It has its own event log.` : `The delivered packet is open (${m.packet.packet.name}, generated ${m.packet.packet.generated}).`} Any packet in the same format opens here: every view, check and schedule is computed from it.</p>
+          {packetError && <p className="mt-2 rounded-md bg-pencil-soft px-2 py-1.5 text-xs text-pencil-deep">{packetError}</p>}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <label className={cx('inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-medium ring-1 ring-ink-200 hover:bg-ink-50', !perms.canAdmin && 'pointer-events-none opacity-45')} title={perms.canAdmin ? '' : perms.why('admin') ?? ''}><Upload size={14} /> Open another packet<input type="file" accept="application/json" className="hidden" onChange={async (e) => {
+              const f = e.target.files?.[0]
+              if (!f) return
+              try {
+                const j = JSON.parse(await f.text())
+                const problems = validatePacket(j)
+                if (problems.length) { setPacketError(`Not opened: ${problems.join('; ')}.`); return }
+                await idbSet(PACKET_OVERRIDE_KEY, j)
+                location.reload()
+              } catch (err) { setPacketError(`Not opened: ${String((err as Error).message)}`) }
+            }} /></label>
+            {custom && <Button variant="secondary" onClick={async () => { await idbDel(PACKET_OVERRIDE_KEY); location.reload() }}>Restore the delivered packet</Button>}
+          </div>
+        </div>
+        {!custom && <div className="mt-4"><Button variant="ghost" onClick={() => {
             const t0 = Date.now() - 1000 * 60 * 60 * 26
             let i = 0
             const evs = SAMPLE.flatMap((g) => g.events.map((e) => {
@@ -191,8 +212,7 @@ function RecordTab() {
               return ev
             }))
             importEvents(evs)
-          }}>Load sample team activity</Button>
-        </div>
+          }}>Load sample team activity</Button></div>}
       </Card>
       <Card className="p-5">
         <h3 className="display mb-1 font-semibold">Retention</h3>

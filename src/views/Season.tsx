@@ -33,7 +33,7 @@ function Replay() {
   const { m } = useModel()
   const openDoc = useStore((s) => s.openDoc)
   const tl = m.packet.timeline
-  const [i, setI] = useState(tl.findIndex((e) => e.id === 'tl-17'))
+  const [i, setI] = useState(() => { const v = tl.map((e, j) => [e, j] as const).filter(([e]) => e.event === 'return_computed').at(-1); return v ? v[1] : tl.length - 1 })
   const [playing, setPlaying] = useState(false)
   useEffect(() => {
     if (!playing) return
@@ -98,7 +98,7 @@ function Replay() {
             </Card>
           </motion.div>
         </AnimatePresence>
-        <Card className="p-4 text-xs text-ink-500">Events after v3 (approval, e-file, payments, the 2028 letter) are scripted. On the Filing page the workpaper plays them out against your state: if Theo's SSN is still wrong when you transmit, the e-file is rejected exactly as it was in the real season.</Card>
+        <Card className="p-4 text-xs text-ink-500">Events after the latest engine version ({m.current.version}) are the packet's scripted future. On the Filing page they play out against your state: transmit with a dependent SSN that doesn't match the official record and the e-file is rejected, exactly as the scripted season shows.</Card>
       </div>
     </div>
   )

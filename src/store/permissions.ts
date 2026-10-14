@@ -48,10 +48,10 @@ export function permissionsFor(m: Model, actor: string): Permissions {
     isClient: role === 'client',
     why: (action) => {
       if (action === 'edit' && !canEdit) return `${ROLE_LABEL[role]}s can read the workpaper but not change it.`
-      if (action === 'approve-large' && role !== 'partner') return 'Firm rule: adjustments with a tax effect over 1,000 need partner sign-off.'
+      if (action === 'approve-large' && role !== 'partner') return 'Firm rule: adjustments above the firm threshold need partner sign-off.'
       if (action === 'resolve-review' && !(role === 'reviewer' || role === 'partner')) return 'Only the reviewer or partner can clear a review note.'
       if (action === 'admin' && role !== 'firm_administrator') return 'Only the firm administrator can change firm standards.'
-      if (action === 'unmask' && !clearance) return `${name} has no sensitive-data clearance (background check pending).`
+      if (action === 'unmask' && !clearance) return `${name} has no sensitive-data clearance${staff?.note ? ` (${staff.note})` : ''}.`
       return null
     },
   }

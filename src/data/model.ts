@@ -50,6 +50,20 @@ export async function loadPacket(url = PACKET_URL): Promise<Packet> {
   return res.json()
 }
 
+/** Structural check before a packet is trusted: returns what is missing, empty when usable. */
+export function validatePacket(p: unknown): string[] {
+  const out: string[] = []
+  const x = p as Partial<Packet> | null
+  if (!x || typeof x !== 'object') return ['not a JSON object']
+  if (!x.packet?.client_id) out.push('packet.client_id missing')
+  if (!Array.isArray(x.documents) || !x.documents.length) out.push('no documents')
+  if (!Array.isArray(x.extracted_values)) out.push('no extracted_values')
+  if (!Array.isArray(x.return_versions) || !x.return_versions.length || !Array.isArray(x.return_versions[0]?.lines)) out.push('no return_versions with lines')
+  if (!Array.isArray(x.household?.people)) out.push('household.people missing')
+  if (!x.firm?.staff?.length) out.push('firm.staff missing')
+  return out
+}
+
 export function buildModel(packet: Packet): Model {
   const docs = packet.documents
   const docById = new Map(docs.map((d) => [d.id, d]))

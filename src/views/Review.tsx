@@ -11,6 +11,7 @@ import { JudgmentDialog, NoteDialog, QuestionDialog } from '../components/action
 import { NoteCard } from '../components/TracePanel'
 import { ago, money, signed, date } from '../lib/format'
 import { initials, personName } from '../store/permissions'
+import { dueDiligenceItems, householdNames } from '../data/derived'
 
 type Tab = 'notes' | 'questions' | 'signoffs' | 'adjustments' | 'judgments' | 'steps' | 'client' | 'team'
 
@@ -107,7 +108,7 @@ function Questions() {
                     <Button variant="primary" disabled={!(ans[q.qId] ?? '').trim()} onClick={() => record({ kind: 'question.answer', qId: q.qId, text: ans[q.qId] }, { toast: 'Answer filed as evidence' })}>Answer</Button>
                   </div>
                 )}
-                {!q.answer && q.to === 'client' && !perms.isClient && <p className="mt-2 text-2xs text-ink-400">Visible in the client portal. Switch to Ngozi or Erik to answer as the client.</p>}
+                {!q.answer && q.to === 'client' && !perms.isClient && <p className="mt-2 text-2xs text-ink-400">Visible in the client portal. Switch to {householdNames(m).first.join(' or ')} to answer as the client.</p>}
               </Card>
             )
           })}
@@ -201,7 +202,7 @@ function Adjustments() {
               <div className="num hidden text-xs md:block"><span className="text-ink-400 line-through">{money(a.from)}</span> → <b>{money(a.to)}</b></div>
               <div className="num hidden text-2xs text-ink-500 md:block">Fed {signed(a.effect.federalBalance)} · CA {signed(a.effect.californiaBalance)}</div>
               <div className="flex justify-end gap-1.5">
-                {a.reverted ? <Chip>Reverted</Chip> : a.needsPartner ? (a.approvedBy ? <Chip tone="tick">Approved · {personName(m, a.approvedBy).split(' ')[0]}</Chip> : perms.canApproveLarge && a.by !== perms.actor ? <Button size="sm" variant="tick" onClick={() => record({ kind: 'adjust.approve', adjId: a.adjId }, { toast: 'Approved' })}>Approve</Button> : <Chip tone="pencil" title={a.by === perms.actor ? 'You posted this adjustment; another partner must approve it.' : ''}>Needs partner</Chip>) : <Chip>Under 1,000</Chip>}
+                {a.reverted ? <Chip>Reverted</Chip> : a.needsPartner ? (a.approvedBy ? <Chip tone="tick">Approved · {personName(m, a.approvedBy).split(' ')[0]}</Chip> : perms.canApproveLarge && a.by !== perms.actor ? <Button size="sm" variant="tick" onClick={() => record({ kind: 'adjust.approve', adjId: a.adjId }, { toast: 'Approved' })}>Approve</Button> : <Chip tone="pencil" title={a.by === perms.actor ? 'You posted this adjustment; another partner must approve it.' : ''}>Needs partner</Chip>) : <Chip>Under {w.partnerThreshold.toLocaleString()}</Chip>}
                 {!a.reverted && perms.canEdit && <button title="Revert" onClick={() => record({ kind: 'adjust.revert', adjId: a.adjId, reason: 'Reverted from adjustments list' }, { toast: 'Reverted' })} className="rounded p-1 text-ink-400 hover:bg-ink-100 hover:text-ink"><Undo2 size={13} /></button>}
               </div>
             </div>
@@ -212,13 +213,6 @@ function Adjustments() {
   )
 }
 
-const DD_ITEMS = [
-  'Interviewed the taxpayer and recorded answers about each qualifying child (age, relationship, residency, support).',
-  'Confirmed Theo lived with the taxpayers all year and was under 17 at year end (born 2017).',
-  'Confirmed Ada is a full-time student under 24 who files her own return marked “can be claimed as a dependent”.',
-  'Checked dependent SSNs against Social Security cards or the prior-year return as filed.',
-  'Retained the records relied on for 3 years (Form 8867, part III).',
-]
 
 function Judgments() {
   const { m } = useModel()
@@ -226,13 +220,18 @@ function Judgments() {
   const perms = usePerms()
   const record = useStore((s) => s.record)
   const [open, setOpen] = useState(false)
-  const [dd, setDd] = useState<boolean[]>(DD_ITEMS.map(() => false))
+  const ddSpec = dueDiligenceItems(m, w)
+  const DD_ITEMS = ddSpec.items
+  const [dd, setDd] = useState<boolean[]>(() => DD_ITEMS.map(() => false))
   const ddDone = w.judgments.find((j) => j.category === 'due_diligence')
-  const elections = [
-    { topic: 'Studio equipment cost recovery', options: m.packet.what_if.alternatives.filter((a) => a.id.startsWith('equipment')).map((a) => `${a.description} (federal ${signed(a.federal.total_tax_change)}, CA ${signed(a.california.total_tax_change)})`), base: '100% special depreciation (engine default)' },
-    { topic: 'Itemize or standard deduction', options: m.packet.what_if.alternatives.filter((a) => a.id === 'standard_deduction').map((a) => `${a.description} (federal ${signed(a.federal.total_tax_change)})`), base: 'Itemize' },
-    { topic: 'Underpayment penalty method', options: m.packet.what_if.alternatives.filter((a) => a.id === 'penalty_annualized').map((a) => `${a.description} (penalty change ${signed(a.federal.penalty_change)})`), base: 'Regular method' },
-  ]
+  // Elections come from the engine's what-if runs, grouped by the choice each one changes.
+  const groups = new Map<string, typeof m.packet.what_if.alternatives>()
+  for (const a of m.packet.what_if.alternatives) { const k = Object.keys(a.choices)[0] ?? a.id; groups.set(k, [...(groups.get(k) ?? []), a]) }
+  const elections = [...groups.entries()].map(([k, alts]) => ({
+    topic: k.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase()),
+    options: alts.map((a) => `${a.description} (federal tax ${signed(a.federal.total_tax_change)}${a.federal.penalty_change ? `, penalty ${signed(a.federal.penalty_change)}` : ''}; state ${signed(a.california.total_tax_change)})`),
+    base: `As computed in ${alts[0].base_version}`,
+  }))
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
       <div className="space-y-5">
@@ -278,7 +277,7 @@ function Judgments() {
                 <li key={i}><label className="flex gap-2 text-xs text-ink-700"><input type="checkbox" className="mt-0.5 accent-tick" checked={dd[i]} onChange={(e) => setDd(dd.map((v, j) => (j === i ? e.target.checked : v)))} />{t}</label></li>
               ))}
             </ul>
-            <Button className="mt-4 w-full" variant="tick" disabled={!perms.canEdit || !dd.every(Boolean)} onClick={() => record([
+            <Button className="mt-4 w-full" variant="tick" disabled={!perms.canEdit || ddSpec.blocked || !DD_ITEMS.every((_, i) => dd[i])} onClick={() => record([
               { kind: 'judgment', jId: `dd-${Date.now()}`, topic: 'Form 8867 paid preparer due diligence (CTC/ODC)', decision: DD_ITEMS.join(' '), authority: 'IRC §6695(g); Treas. Reg. §1.6695-2', category: 'due_diligence' },
               { kind: 'step', step: 'Due diligence completed', done: true },
             ], { toast: 'Due diligence recorded' })}>Complete due diligence</Button>

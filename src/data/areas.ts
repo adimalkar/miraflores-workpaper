@@ -9,23 +9,22 @@ export interface Area {
   name: string
   short: string
   budgetKey: string | null
-  blurb: string
   /** Line key the area summary leads with */
   anchor: string
 }
 
 export const AREAS: Area[] = [
-  { id: 'wages', name: 'Wages & stock compensation', short: 'Wages', budgetKey: 'wages_and_stock_compensation', blurb: 'Two W-2s, RSU vests, ESPP, ISO exercise', anchor: 'F1040.1z' },
-  { id: 'investments', name: 'Investments & digital assets', short: 'Investments', budgetKey: 'investments_and_digital_assets', blurb: 'Three brokerages, 282 sales, 12 crypto disposals', anchor: 'F1040.7' },
-  { id: 'business', name: 'Lindqvist Studio · Schedule C', short: 'Business', budgetKey: 'business', blurb: 'Books to taxable profit, equipment, mileage, home office', anchor: 'SchC.31' },
-  { id: 'rentals', name: 'Rentals & condo sale', short: 'Rentals', budgetKey: 'rentals_and_sale', blurb: 'Fremont Way rental, Barton Hills condo sold 10/15', anchor: 'SchE.26' },
-  { id: 'passthrough', name: 'Pass-throughs & basis', short: 'K-1s', budgetKey: 'pass_throughs_and_basis', blurb: 'Woodworks S corp (basis gap), Ridgeline LP (late K-1)', anchor: 'SchE.32' },
-  { id: 'retirement', name: 'Retirement & HSA', short: 'Retirement', budgetKey: null, blurb: 'Backdoor Roth, SEP, family HSA', anchor: 'F1040.4b' },
-  { id: 'foreign', name: 'Foreign items', short: 'Foreign', budgetKey: null, blurb: 'Sparbanken account (SEK), foreign tax credit, 8938', anchor: 'F8938.1.max' },
-  { id: 'deductions', name: 'Deductions & credits', short: 'Deductions', budgetKey: 'deductions_and_credits', blurb: 'Itemized, gifts of stock and a car, CTC, AOTC, dependent care', anchor: 'F1040.12' },
-  { id: 'computation', name: 'Tax computation', short: 'Tax', budgetKey: null, blurb: 'Regular tax, AMT from the ISO exercise, NIIT, SE tax', anchor: 'F1040.24' },
-  { id: 'payments', name: 'Payments & penalties', short: 'Payments', budgetKey: null, blurb: 'Withholding, estimates, extension, underpayment penalty', anchor: 'F1040.33' },
-  { id: 'california', name: 'California 540NR · state split', short: 'California', budgetKey: 'california', blurb: 'Part-year resident to 7/14, then Texas', anchor: 'F540NR.64' },
+  { id: 'wages', name: 'Wages & stock compensation', short: 'Wages', budgetKey: 'wages_and_stock_compensation', anchor: 'F1040.1z' },
+  { id: 'investments', name: 'Investments & digital assets', short: 'Investments', budgetKey: 'investments_and_digital_assets', anchor: 'F1040.7' },
+  { id: 'business', name: 'Business · Schedule C', short: 'Business', budgetKey: 'business', anchor: 'SchC.31' },
+  { id: 'rentals', name: 'Rentals & property sales', short: 'Rentals', budgetKey: 'rentals_and_sale', anchor: 'SchE.26' },
+  { id: 'passthrough', name: 'Pass-throughs & basis', short: 'K-1s', budgetKey: 'pass_throughs_and_basis', anchor: 'SchE.32' },
+  { id: 'retirement', name: 'Retirement & HSA', short: 'Retirement', budgetKey: null, anchor: 'F1040.4b' },
+  { id: 'foreign', name: 'Foreign items', short: 'Foreign', budgetKey: null, anchor: 'F8938.1.max' },
+  { id: 'deductions', name: 'Deductions & credits', short: 'Deductions', budgetKey: 'deductions_and_credits', anchor: 'F1040.12' },
+  { id: 'computation', name: 'Tax computation', short: 'Tax', budgetKey: null, anchor: 'F1040.24' },
+  { id: 'payments', name: 'Payments & penalties', short: 'Payments', budgetKey: null, anchor: 'F1040.33' },
+  { id: 'california', name: 'California 540NR · state split', short: 'California', budgetKey: 'california', anchor: 'F540NR.64' },
 ]
 
 export const AREA_BY_ID = new Map(AREAS.map((a) => [a.id, a]))

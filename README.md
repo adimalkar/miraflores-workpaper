@@ -31,7 +31,7 @@ The packet is served unmodified from `public/packet/okafor_lindqvist_2025_packet
 | Judgment, elections, due diligence, variances, completeness | Review › Judgments (authority required), Form 8867 checklist, Schedules › Return vs last year, Documents (accounted for), Filing › Outside filings |
 | People: questions, blocking notes, sign-offs that reopen, roles, assignments, client approval | Review tabs; role switcher (bottom-left); client portal (switch to Ngozi or Erik) |
 | Filing and after | Filing: extension → approval → 8879 → transmit (rejects if Theo's SSN is still wrong) → freeze → amend; client copy; Letter 566 response record; plan 2026 / roll forward |
-| Firm | Firm: standards editor (admin), sensitive data masking + view log, time vs budget, status, export / import / retention |
+| Firm | Firm: standards editor (admin), sensitive data masking + view log, time vs budget, status, export / import / retention, open any other packet in the same format |
 
 ## Stack and why
 
