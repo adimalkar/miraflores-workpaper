@@ -1,5 +1,7 @@
 # Proof: a web-native tax workpaper
 
+**Live:** https://adimalkar.github.io/miraflores-workpaper/ · open it in two tabs and switch roles (bottom-left) to see people working at once.
+
 A working workpaper for the Okafor-Lindqvist 2025 return (Form 1040 + California 540NR), built on the Miraflores packet exactly as delivered.
 
 - **Core idea and data model:** [`docs/CORE_IDEA.md`](docs/CORE_IDEA.md)
