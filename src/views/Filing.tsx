@@ -61,7 +61,7 @@ export function Filing() {
     {
       id: 'sign', title: 'Client approval and e-file signature (8879)', done: has('client-approved'),
       body: has('client-approved')
-        ? <p className="text-sm text-ink-600">Signed by {personName(m, last('client-approved')!.by)} on {date(last('client-approved')!.at, true)}. Federal {signed(Number(last('client-approved')!.detail?.federal ?? fedBal))}, California {signed(Number(last('client-approved')!.detail?.california ?? caBal))} (positive = due, negative = refund).</p>
+        ? <p className="text-sm text-ink-600">Signed by {personName(m, last('client-approved')!.by)} on {date(last('client-approved')!.at, true)}. {(() => { const f = Number(last('client-approved')!.detail?.federal ?? fedBal); const c = Number(last('client-approved')!.detail?.california ?? caBal); return `Federal ${f > 0 ? 'balance due' : 'refund'} ${money(Math.abs(f))}, California ${c > 0 ? 'balance due' : 'refund'} ${money(Math.abs(c))}.` })()}</p>
         : <p className="text-sm text-ink-600">{has('sent-for-approval') ? 'Waiting for Ngozi or Erik in the client portal (switch role to sign as the client).' : 'Available once the return is sent.'}</p>,
     },
     {
@@ -250,7 +250,8 @@ function ClientCopy({ open, onClose, fedBal, caBal }: { open: boolean; onClose: 
   const { m } = useModel()
   const w = useWork()
   const record = useStore((s) => s.record)
-  const changes = [...w.adjustments.values()].filter((a) => !a.reverted)
+  const { findings } = useModel()
+  const changes = [...new Set([...w.adjustments.values()].filter((a) => !a.reverted).map((a) => findings.find((f) => f.id === a.findingId)?.title ?? `${w.line(a.lineKey)?.label ?? a.lineKey}: ${a.reason}`))]
   return (
     <Modal open={open} onClose={onClose} width={680} title="Client copy · 2025 returns" footer={<>
       <Button variant="ghost" onClick={onClose}>Close</Button>
@@ -265,7 +266,7 @@ function ClientCopy({ open, onClose, fedBal, caBal }: { open: boolean; onClose: 
         </div>
         <div>
           <div className="eyebrow mb-1">What we changed from the first draft, and why</div>
-          {changes.length === 0 ? <p className="text-ink-500">No changes.</p> : <ul className="list-disc space-y-1 pl-4 text-ink-700">{changes.map((a) => <li key={a.adjId}>{w.line(a.lineKey)?.label}: {a.reason}</li>)}</ul>}
+          {changes.length === 0 ? <p className="text-ink-500">No changes.</p> : <ul className="list-disc space-y-1 pl-4 text-ink-700">{changes.map((t) => <li key={t}>{t}</li>)}</ul>}
         </div>
         <div>
           <div className="eyebrow mb-1">Things you need to do</div>

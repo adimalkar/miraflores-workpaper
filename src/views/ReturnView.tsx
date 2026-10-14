@@ -48,7 +48,7 @@ export function ReturnView({ focus }: { focus?: string }) {
       <Tabs value={tab} onChange={(v) => { setSel(new Set()); navigate(`/return/${v}`) }} items={items as { id: string; label: string }[]} className="mb-4 rounded-xl bg-ink-100/60 p-1" />
       <Toolbar filter={filter} setFilter={setFilter} sel={sel} setSel={setSel} />
       <Card className="overflow-hidden">
-        <div className="grid grid-cols-[minmax(0,1fr)_110px_120px] items-center gap-3 border-b border-ink-100 bg-ink-50/70 px-4 py-2 text-2xs font-medium uppercase tracking-wider text-ink-400 sm:grid-cols-[minmax(0,1fr)_100px_120px_120px]">
+        <div className="grid grid-cols-[minmax(0,1fr)_110px_120px] items-center gap-3 border-b border-ink-100 bg-ink-50/70 px-4 py-2 text-2xs font-medium uppercase tracking-wider text-ink-400 sm:grid-cols-[minmax(0,1fr)_100px_220px_120px]">
           <span>Line</span><span className="hidden text-right sm:block">2024</span><span className="text-right">2025</span><span className="text-right">Proof</span>
         </div>
         <div>
@@ -146,7 +146,7 @@ function Node({ k, depth, filter, sel, setSel, defaultOpen }: { k: string; depth
     <div className={cx(depth === 0 && 'border-b border-ink-100 last:border-0')}>
       <div
         className={cx(
-          'group grid grid-cols-[minmax(0,1fr)_110px_120px] items-center gap-3 px-4 py-[7px] text-sm transition-colors sm:grid-cols-[minmax(0,1fr)_100px_120px_120px]',
+          'group grid grid-cols-[minmax(0,1fr)_110px_120px] items-center gap-3 px-4 py-[7px] text-sm transition-colors sm:grid-cols-[minmax(0,1fr)_100px_220px_120px]',
           trace === k ? 'bg-hilite-soft/70' : 'hover:bg-ink-50/80',
           !self && 'opacity-45',
         )}
@@ -174,7 +174,7 @@ function Node({ k, depth, filter, sel, setSel, defaultOpen }: { k: string; depth
         <span className="num flex items-center justify-end gap-1.5 text-right font-medium">
           {l.adjusted && <Pencil size={11} className="text-slateblue" />}
           {l.pending && <span className="h-1.5 w-1.5 rounded-full bg-amber" title="Awaiting engine recompute" />}
-          <span className={cx(l.adjusted && 'text-slateblue', l.flowed && 'text-slateblue/80')}>{lineValue(l.value)}</span>
+          <span title={typeof l.value === 'string' ? l.value : undefined} className={cx(typeof l.value === 'string' && 'max-w-[220px] truncate text-xs font-normal text-ink-600', l.adjusted && 'text-slateblue', l.flowed && 'text-slateblue/80')}>{lineValue(l.value)}</span>
         </span>
         <span className="flex items-center justify-end gap-1.5">
           {p?.verification ? <TickMark method={p.verification.method} size={15} /> : <span className={cx('h-2 w-2 rounded-full', meta.dot)} title={meta.label} />}

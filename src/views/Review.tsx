@@ -183,7 +183,7 @@ function Adjustments() {
   const record = useStore((s) => s.record)
   const openTrace = useStore((s) => s.openTrace)
   const adjs = [...w.adjustments.values()].sort((a, b) => b.at.localeCompare(a.at))
-  const pending = adjs.filter((a) => !a.reverted && a.needsPartner && !a.approvedBy)
+  const pending = adjs.filter((a) => !a.reverted && a.needsPartner && !a.approvedBy && a.by !== perms.actor)
   return (
     <div>
       <div className="mb-3 flex items-center gap-3">
@@ -201,7 +201,7 @@ function Adjustments() {
               <div className="num hidden text-xs md:block"><span className="text-ink-400 line-through">{money(a.from)}</span> → <b>{money(a.to)}</b></div>
               <div className="num hidden text-2xs text-ink-500 md:block">Fed {signed(a.effect.federalBalance)} · CA {signed(a.effect.californiaBalance)}</div>
               <div className="flex justify-end gap-1.5">
-                {a.reverted ? <Chip>Reverted</Chip> : a.needsPartner ? (a.approvedBy ? <Chip tone="tick">Approved · {personName(m, a.approvedBy).split(' ')[0]}</Chip> : perms.canApproveLarge ? <Button size="sm" variant="tick" onClick={() => record({ kind: 'adjust.approve', adjId: a.adjId }, { toast: 'Approved' })}>Approve</Button> : <Chip tone="pencil">Needs partner</Chip>) : <Chip>Under 1,000</Chip>}
+                {a.reverted ? <Chip>Reverted</Chip> : a.needsPartner ? (a.approvedBy ? <Chip tone="tick">Approved · {personName(m, a.approvedBy).split(' ')[0]}</Chip> : perms.canApproveLarge && a.by !== perms.actor ? <Button size="sm" variant="tick" onClick={() => record({ kind: 'adjust.approve', adjId: a.adjId }, { toast: 'Approved' })}>Approve</Button> : <Chip tone="pencil" title={a.by === perms.actor ? 'You posted this adjustment; another partner must approve it.' : ''}>Needs partner</Chip>) : <Chip>Under 1,000</Chip>}
                 {!a.reverted && perms.canEdit && <button title="Revert" onClick={() => record({ kind: 'adjust.revert', adjId: a.adjId, reason: 'Reverted from adjustments list' }, { toast: 'Reverted' })} className="rounded p-1 text-ink-400 hover:bg-ink-100 hover:text-ink"><Undo2 size={13} /></button>}
               </div>
             </div>

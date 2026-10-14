@@ -42,6 +42,8 @@ export function Shell() {
   const doc = useStore((s) => s.doc)
   const setPalette = useStore((s) => s.setPalette)
   const w = useWork()
+  const mainRef = useRef<HTMLElement>(null)
+  useEffect(() => { mainRef.current?.scrollTo({ top: 0 }) }, [route])
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
@@ -90,7 +92,7 @@ export function Shell() {
           </div>
         )}
         <div className="flex min-h-0 flex-1">
-          <main className="scroll-thin relative min-w-0 flex-1 overflow-y-auto">
+          <main ref={mainRef} className="scroll-thin relative min-w-0 flex-1 overflow-y-auto">
             <AnimatePresence mode="wait">
               <motion.div
                 key={view}

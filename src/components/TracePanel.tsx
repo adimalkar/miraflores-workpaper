@@ -92,7 +92,7 @@ export function TracePanel({ lineKey }: { lineKey: string }) {
                   : <Chip tone="pencil">Needs partner sign-off</Chip>)}
               </div>
               <div className="mt-2 flex gap-1.5">
-                {proof.adjustment.needsPartner && !proof.adjustment.approvedBy && perms.canApproveLarge && (
+                {proof.adjustment.needsPartner && !proof.adjustment.approvedBy && perms.canApproveLarge && proof.adjustment.by !== perms.actor && (
                   <Button size="sm" variant="tick" onClick={() => record({ kind: 'adjust.approve', adjId: proof.adjustment!.adjId }, { toast: 'Adjustment approved' })}>Approve</Button>
                 )}
                 {perms.canEdit && !frozen && <Button size="sm" variant="ghost" onClick={() => record({ kind: 'adjust.revert', adjId: proof.adjustment!.adjId, reason: 'Reverted from the proof panel' }, { toast: 'Adjustment reverted; engine value restored' })}>Revert to engine value</Button>}

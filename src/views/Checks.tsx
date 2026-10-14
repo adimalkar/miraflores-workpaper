@@ -27,7 +27,6 @@ export function proposalEffect(f: Finding, m: ReturnType<typeof useModel>['m']):
 export function proposalEvents(f: Finding, m: ReturnType<typeof useModel>['m'], w: ReturnType<typeof useWork>): NewEvent[] {
   const evs: NewEvent[] = []
   for (const p of f.proposals) evs.push(...eventsFor(p, f, m, w))
-  evs.push({ kind: 'finding.status', findingId: f.id, status: 'resolved', reason: 'Proposed fix applied' })
   return evs
 }
 
@@ -251,7 +250,8 @@ function FindingDetail({ x }: { x: ReturnType<typeof useFindingState>[number] })
             {x.status === 'open' && <Button icon={<Scale size={14} />} disabled={!perms.canEdit} onClick={() => setDlg('judgment')}>Record judgment</Button>}
             {x.status === 'open' && <Button variant="ghost" icon={<HelpCircle size={14} />} disabled={!perms.canEdit} onClick={() => setDlg('ask')}>Ask the client</Button>}
             {x.status === 'open' && <Button variant="ghost" icon={<X size={14} />} disabled={!perms.canEdit} onClick={() => setDlg('dismiss')}>Dismiss</Button>}
-            {x.status !== 'open' && perms.canEdit && <Button variant="ghost" onClick={() => record({ kind: 'finding.status', findingId: f.id, status: 'open', reason: 'Reopened' })}>Reopen</Button>}
+            {x.status !== 'open' && !x.applied && perms.canEdit && <Button variant="ghost" onClick={() => record({ kind: 'finding.status', findingId: f.id, status: 'open', reason: 'Reopened' })}>Reopen</Button>}
+            {x.applied && <span className="self-center text-xs text-ink-500">Fix in place. Revert its adjustments to reopen this check.</span>}
             {f.lines[0] && <Button variant="ghost" icon={<ShieldAlert size={14} />} onClick={() => openTrace(f.lines[0])}>Open {f.lines[0]}</Button>}
           </div>
         )}

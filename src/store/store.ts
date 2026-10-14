@@ -165,6 +165,10 @@ if (channel) {
       useStore.setState({ events: [] })
     } else if (d.type === 'presence' && d.p.tab !== tabId) {
       useStore.setState({ presence: { ...useStore.getState().presence, [d.p.tab]: d.p } })
+    } else if (d.type === 'bye') {
+      const p = { ...useStore.getState().presence }
+      delete p[d.tab]
+      useStore.setState({ presence: p })
     } else if (d.type === 'hello') {
       broadcastPresence()
     }
@@ -173,10 +177,12 @@ if (channel) {
     broadcastPresence()
     const now = Date.now()
     const p = useStore.getState().presence
-    const alive = Object.fromEntries(Object.entries(p).filter(([, v]) => now - v.at < 9000))
+    const alive = Object.fromEntries(Object.entries(p).filter(([, v]) => now - v.at < 95000))
     if (Object.keys(alive).length !== Object.keys(p).length) useStore.setState({ presence: alive })
   }, 3000)
   channel.postMessage({ type: 'hello', from: tabId })
+  document.addEventListener('visibilitychange', () => broadcastPresence())
+  window.addEventListener('beforeunload', () => channel.postMessage({ type: 'bye', tab: tabId }))
   useStore.subscribe((s, prev) => { if (s.actor !== prev.actor) broadcastPresence() })
 }
 

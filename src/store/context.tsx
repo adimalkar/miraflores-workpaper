@@ -41,7 +41,8 @@ export function useFindingState() {
       p.kind === 'household' ? w.ssnFix.get(p.personId) === p.to
         : p.kind === 'extraction' ? w.extractionFix.get(p.evId)?.to === p.to
           : w.adjByLine.get(p.lineKey)?.to === p.to)
-    const status = st?.status === 'dismissed' ? 'dismissed' : applied || st?.status === 'resolved' ? 'resolved' : 'open'
-    return { f, status, applied, reason: st?.reason, by: st?.by, at: st?.at }
+    const judged = w.judgments.find((j) => j.findingId === f.id)
+    const status = st?.status === 'dismissed' ? 'dismissed' : applied || st?.status === 'resolved' || (judged && st?.status !== 'open') ? 'resolved' : 'open'
+    return { f, status, applied, reason: st?.reason ?? (judged ? `Judgment: ${judged.decision}` : undefined), by: st?.by ?? judged?.by, at: st?.at ?? judged?.at }
   }), [findings, w])
 }
