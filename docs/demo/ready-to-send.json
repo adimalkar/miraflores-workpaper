@@ -1,0 +1,834 @@
+{
+ "packet": {
+  "client_id": "CL-20417"
+ },
+ "note": "Import from Firm > Record > Import after Reset demo. Every gate before client approval is clear; the dependent SSN check was dismissed, so transmitting shows the e-file rejection.",
+ "events": [
+  {
+   "kind": "household.correct",
+   "personId": "theo",
+   "field": "ssn",
+   "from": "666-74-3309",
+   "to": "666-74-3390",
+   "reason": "Agrees to 2024 return as filed (and SS card when received).",
+   "id": "e-mv8w44en-72slb",
+   "at": "2026-10-15T01:58:51.983Z",
+   "actor": "st-01",
+   "batch": "b-mv8w44en-wowoo"
+  },
+  {
+   "kind": "adjust",
+   "adjId": "adj-mv8w44em-45g2t",
+   "lineKey": "SchCA540NR.1.E",
+   "from": 218400,
+   "to": 129569,
+   "reason": "State-source wages rebuilt per employer: box 16 while resident, paystub state wages at the move.",
+   "effects": [
+    {
+     "cat": "ca_source_income",
+     "amount": -88831
+    }
+   ],
+   "findingId": "ca-source-wages",
+   "id": "e-mv8w44en-mx4cd",
+   "at": "2026-10-15T01:58:51.983Z",
+   "actor": "st-01",
+   "batch": "b-mv8w44en-wowoo"
+  },
+  {
+   "kind": "adjust",
+   "adjId": "adj-mv8w44em-7ytuz",
+   "lineKey": "F8949.B.N1",
+   "from": 19240,
+   "to": 140,
+   "reason": "Basis per stock plan supplement (ev-0066); report adjustment code B.",
+   "effects": [
+    {
+     "cat": "stcg",
+     "amount": -19100
+    }
+   ],
+   "findingId": "rsu-zero-basis",
+   "id": "e-mv8w44en-cimdf",
+   "at": "2026-10-15T01:58:51.983Z",
+   "actor": "st-01",
+   "batch": "b-mv8w44en-wowoo"
+  },
+  {
+   "kind": "adjust",
+   "adjId": "adj-mv8w44em-vjcyg",
+   "lineKey": "F8949.B.N3",
+   "from": 18480,
+   "to": -620,
+   "reason": "Basis per stock plan supplement (ev-0068); report adjustment code B.",
+   "effects": [
+    {
+     "cat": "stcg",
+     "amount": -19100
+    }
+   ],
+   "findingId": "rsu-zero-basis",
+   "id": "e-mv8w44en-1h36g",
+   "at": "2026-10-15T01:58:51.983Z",
+   "actor": "st-01",
+   "batch": "b-mv8w44en-wowoo"
+  },
+  {
+   "kind": "adjust",
+   "adjId": "adj-mv8w44em-96w73",
+   "lineKey": "F8949.E.N4",
+   "from": 15300,
+   "to": 5880,
+   "reason": "Basis per stock plan supplement (ev-0070); report adjustment code B.",
+   "effects": [
+    {
+     "cat": "ltcg",
+     "amount": -9420
+    }
+   ],
+   "findingId": "rsu-zero-basis",
+   "id": "e-mv8w44en-xc64i",
+   "at": "2026-10-15T01:58:51.983Z",
+   "actor": "st-01",
+   "batch": "b-mv8w44en-wowoo"
+  },
+  {
+   "kind": "adjust",
+   "adjId": "adj-mv8w44em-jx72k",
+   "lineKey": "SchC.1",
+   "from": 163700,
+   "to": 151300,
+   "reason": "1099-K 12,400 matched to books deposits (ev-0109).",
+   "effects": [
+    {
+     "cat": "schc_profit",
+     "amount": -12400
+    }
+   ],
+   "findingId": "1099k-double-count",
+   "id": "e-mv8w44en-odcin",
+   "at": "2026-10-15T01:58:51.983Z",
+   "actor": "st-01",
+   "batch": "b-mv8w44en-wowoo"
+  },
+  {
+   "kind": "adjust",
+   "adjId": "adj-mv8w44em-dem1l",
+   "lineKey": "Sch1.17",
+   "from": 14400,
+   "to": 0,
+   "reason": "Eligible for employer-subsidized coverage (qa-25).",
+   "effects": [
+    {
+     "cat": "adjustment",
+     "amount": -14400
+    }
+   ],
+   "findingId": "sehi-eligible",
+   "id": "e-mv8w44en-ovpau",
+   "at": "2026-10-15T01:58:51.983Z",
+   "actor": "st-01",
+   "batch": "b-mv8w44en-wowoo"
+  },
+  {
+   "kind": "adjust",
+   "adjId": "adj-mv8w44en-f7k5u",
+   "lineKey": "SchC.44a",
+   "from": 11800,
+   "to": 8100,
+   "reason": "Remove duplicate page 3 (3,700 miles).",
+   "effects": [],
+   "findingId": "mileage-duplicate-page",
+   "id": "e-mv8w44en-0it9s",
+   "at": "2026-10-15T01:58:51.983Z",
+   "actor": "st-01",
+   "batch": "b-mv8w44en-wowoo"
+  },
+  {
+   "kind": "adjust",
+   "adjId": "adj-mv8w44en-9eqcd",
+   "lineKey": "SchC.9",
+   "from": 8260,
+   "to": 5670,
+   "reason": "8,100 miles × 0.7 standard rate.",
+   "effects": [
+    {
+     "cat": "schc_profit",
+     "amount": 2590
+    }
+   ],
+   "findingId": "mileage-duplicate-page",
+   "id": "e-mv8w44en-h5z56",
+   "at": "2026-10-15T01:58:51.983Z",
+   "actor": "st-01",
+   "batch": "b-mv8w44en-wowoo"
+  },
+  {
+   "kind": "adjust",
+   "adjId": "adj-mv8w44en-yicol",
+   "lineKey": "SchA.5b",
+   "from": 13420,
+   "to": 6508,
+   "reason": "Exclude the seller's share credited at closing (ev-1027).",
+   "effects": [
+    {
+     "cat": "itemized",
+     "amount": -5622,
+     "only": "federal",
+     "note": "Only the part no longer capped changes the federal deduction."
+    },
+    {
+     "cat": "salt",
+     "amount": -6912,
+     "only": "california"
+    }
+   ],
+   "findingId": "home-tax-seller-share",
+   "id": "e-mv8w44en-4du2m",
+   "at": "2026-10-15T01:58:51.983Z",
+   "actor": "st-01",
+   "batch": "b-mv8w44en-wowoo"
+  },
+  {
+   "kind": "adjust",
+   "adjId": "adj-mv8w44en-n67dr",
+   "lineKey": "F8283.A1.vehicle",
+   "from": 6000,
+   "to": 2900,
+   "reason": "Limited to gross proceeds (D66 box 4c).",
+   "effects": [
+    {
+     "cat": "itemized",
+     "amount": -3100
+    }
+   ],
+   "findingId": "vehicle-gross-proceeds",
+   "id": "e-mv8w44en-27z4e",
+   "at": "2026-10-15T01:58:51.983Z",
+   "actor": "st-01",
+   "batch": "b-mv8w44en-wowoo"
+  },
+  {
+   "kind": "adjust",
+   "adjId": "adj-mv8w44en-t1v63",
+   "lineKey": "SchA.8a",
+   "from": 21847,
+   "to": 19697,
+   "reason": "Payoff interest is inside D55 box 1.",
+   "effects": [
+    {
+     "cat": "itemized",
+     "amount": -2150
+    }
+   ],
+   "findingId": "mortgage-payoff-double",
+   "id": "e-mv8w44en-busmj",
+   "at": "2026-10-15T01:58:51.983Z",
+   "actor": "st-01",
+   "batch": "b-mv8w44en-wowoo"
+  },
+  {
+   "kind": "adjust",
+   "adjId": "adj-mv8w44en-37yy7",
+   "lineKey": "SchB.1.2",
+   "from": 1840,
+   "to": 0,
+   "reason": "Duplicate of SchB.1.1 (same payer program, same account ending 7731).",
+   "effects": [
+    {
+     "cat": "interest",
+     "amount": -1840
+    }
+   ],
+   "findingId": "interest-double-count",
+   "id": "e-mv8w44en-rds98",
+   "at": "2026-10-15T01:58:51.983Z",
+   "actor": "st-01",
+   "batch": "b-mv8w44en-wowoo"
+  },
+  {
+   "kind": "adjust",
+   "adjId": "adj-mv8w44en-gcbiv",
+   "lineKey": "F1040.26",
+   "from": 13000,
+   "to": 12000,
+   "reason": "Agreed to IRS account transcript (code 670 payments).",
+   "effects": [
+    {
+     "cat": "fed_payment",
+     "amount": -1000
+    }
+   ],
+   "findingId": "fed-estimates-transcript",
+   "id": "e-mv8w44en-1q9l2",
+   "at": "2026-10-15T01:58:51.983Z",
+   "actor": "st-01",
+   "batch": "b-mv8w44en-wowoo"
+  },
+  {
+   "kind": "adjust",
+   "adjId": "adj-mv8w44en-y18g7",
+   "lineKey": "F540NR.72",
+   "from": 14000,
+   "to": 10500,
+   "reason": "Agreed to the state agency account.",
+   "effects": [
+    {
+     "cat": "ca_payment",
+     "amount": -3500
+    }
+   ],
+   "findingId": "ca-estimate-wrong-year",
+   "id": "e-mv8w44en-mwkaa",
+   "at": "2026-10-15T01:58:51.983Z",
+   "actor": "st-01",
+   "batch": "b-mv8w44en-wowoo"
+  },
+  {
+   "kind": "extraction.correct",
+   "evId": "ev-1045",
+   "from": "74-3829516",
+   "to": "74-3829156",
+   "reason": "Agrees to printed D62 page 1.",
+   "id": "e-mv8w44en-vn48y",
+   "at": "2026-10-15T01:58:51.983Z",
+   "actor": "st-01",
+   "batch": "b-mv8w44en-wowoo"
+  },
+  {
+   "kind": "adjust",
+   "adjId": "adj-mv8w44en-rhmwu",
+   "lineKey": "F8949.B.M18",
+   "from": null,
+   "to": -60,
+   "reason": "Lot M18 from D31 page 32, entered from the printed page.",
+   "effects": [
+    {
+     "cat": "stcg",
+     "amount": -60
+    }
+   ],
+   "findingId": "unread-D31-M18",
+   "isNew": {
+    "label": "Ironwood REIT (fractional share cash in lieu) (6.8 sh, acquired 2025-01-14, sold 2025-12-15; proceeds 250.00, basis 310.00)",
+    "form": "F8949"
+   },
+   "id": "e-mv8w44en-iq3jx",
+   "at": "2026-10-15T01:58:51.983Z",
+   "actor": "st-01",
+   "batch": "b-mv8w44en-wowoo"
+  },
+  {
+   "kind": "adjust",
+   "adjId": "adj-mv8w44en-34lbf",
+   "lineKey": "SchB.1.6",
+   "from": 1747,
+   "to": 1871,
+   "reason": "Convert at the 2025 average rate 9.86 SEK/USD.",
+   "effects": [
+    {
+     "cat": "interest",
+     "amount": 124
+    }
+   ],
+   "findingId": "fx-SchB.1.6",
+   "id": "e-mv8w44en-8g2ia",
+   "at": "2026-10-15T01:58:51.983Z",
+   "actor": "st-01",
+   "batch": "b-mv8w44en-wowoo"
+  },
+  {
+   "kind": "adjust",
+   "adjId": "adj-mv8w44en-6tqi0",
+   "lineKey": "SchC.25",
+   "from": 3480,
+   "to": 2172,
+   "reason": "Business use per client call: Telephone 70% business; Internet 50% business.",
+   "effects": [
+    {
+     "cat": "schc_profit",
+     "amount": 1308
+    }
+   ],
+   "findingId": "mixed-use",
+   "id": "e-mv8w44en-sjmbo",
+   "at": "2026-10-15T01:58:51.983Z",
+   "actor": "st-01",
+   "batch": "b-mv8w44en-wowoo"
+  },
+  {
+   "kind": "adjust",
+   "adjId": "adj-mv8w44en-x363z",
+   "lineKey": "SchC.27a.1",
+   "from": 6850,
+   "to": 6634,
+   "reason": "Business use per client call: Spotify Family personal.",
+   "effects": [
+    {
+     "cat": "schc_profit",
+     "amount": 216
+    }
+   ],
+   "findingId": "mixed-use",
+   "id": "e-mv8w44en-wbda2",
+   "at": "2026-10-15T01:58:51.983Z",
+   "actor": "st-01",
+   "batch": "b-mv8w44en-wowoo"
+  },
+  {
+   "kind": "undo",
+   "eventIds": [
+    "e-mv8w44en-72slb"
+   ],
+   "label": "SSN correction",
+   "id": "e-mv8w451x-k6ymx",
+   "at": "2026-10-15T01:58:52.821Z",
+   "actor": "st-01"
+  },
+  {
+   "kind": "finding.status",
+   "findingId": "ssn-theo",
+   "status": "dismissed",
+   "reason": "Organizer SSN entered by the client; left as entered.",
+   "id": "e-mv8w454p-7wfqs",
+   "at": "2026-10-15T01:58:52.921Z",
+   "actor": "st-01"
+  },
+  {
+   "kind": "adjust",
+   "adjId": "adj-pns9ott",
+   "lineKey": "SchE.14A",
+   "from": 13300,
+   "to": 2300,
+   "reason": "Capitalize the replacement (Reg. 1.263(a)-3 restoration of a building system); depreciate SL 27.5 years.",
+   "effects": [
+    {
+     "cat": "fixed",
+     "amount": 0,
+     "fixed": {
+      "federal": 3633,
+      "california": 896
+     },
+     "note": "Engine what-if hvac_improvement"
+    }
+   ],
+   "findingId": "capitalize-SchE.14A",
+   "id": "e-mv8w454q-p54mj",
+   "at": "2026-10-15T01:58:52.922Z",
+   "actor": "st-01",
+   "batch": "b-mv8w454q-u0pt4"
+  },
+  {
+   "kind": "adjust",
+   "adjId": "adj-dwjqm5q",
+   "lineKey": "SchE.18A",
+   "from": 13891,
+   "to": 14041,
+   "reason": "Capitalize the replacement (Reg. 1.263(a)-3 restoration of a building system); depreciate SL 27.5 years.",
+   "effects": [],
+   "findingId": "capitalize-SchE.14A",
+   "id": "e-mv8w454q-ox3qf",
+   "at": "2026-10-15T01:58:52.922Z",
+   "actor": "st-01",
+   "batch": "b-mv8w454q-u0pt4"
+  },
+  {
+   "kind": "adjust",
+   "adjId": "adj-442ldoq",
+   "lineKey": "F8949.H.C6",
+   "from": 5325,
+   "to": 0,
+   "reason": "Lot moves to long-term (box K): acquired 03/2021 per client.",
+   "effects": [
+    {
+     "cat": "stcg",
+     "amount": -5325
+    }
+   ],
+   "findingId": "crypto-basis-C6",
+   "id": "e-mv8w454q-kq2wv",
+   "at": "2026-10-15T01:58:52.922Z",
+   "actor": "st-01",
+   "batch": "b-mv8w454q-117kt"
+  },
+  {
+   "kind": "adjust",
+   "adjId": "adj-wzvphpm",
+   "lineKey": "F8949.K.C6",
+   "from": null,
+   "to": 2275,
+   "reason": "Basis 3,050 per client message msg-07 and bank statement line (CryptoNorth, 03/15/2021).",
+   "effects": [
+    {
+     "cat": "ltcg",
+     "amount": 2275
+    }
+   ],
+   "findingId": "crypto-basis-C6",
+   "isNew": {
+    "label": "BTC 0.05 units (acquired 2021-03-15, sold 2025-06-18; proceeds 5,325, basis 3,050)",
+    "form": "F8949"
+   },
+   "id": "e-mv8w454q-kn1zc",
+   "at": "2026-10-15T01:58:52.922Z",
+   "actor": "st-01",
+   "batch": "b-mv8w454q-117kt"
+  },
+  {
+   "kind": "judgment",
+   "jId": "j-hvac",
+   "topic": "Capitalize the HVAC replacement",
+   "decision": "Whole-system heat pump replacement is a restoration of a building system: capitalized, 27.5-year SL.",
+   "authority": "Treas. Reg. 1.263(a)-3(k)",
+   "category": "judgment",
+   "findingId": "capitalize-SchE.14A",
+   "target": "SchE.14A",
+   "id": "e-mv8w454q-jtd1j",
+   "at": "2026-10-15T01:58:52.922Z",
+   "actor": "st-01"
+  },
+  {
+   "kind": "judgment",
+   "jId": "j-crypto",
+   "topic": "Basis for crypto lot C6",
+   "decision": "Accept 3,050 cost and 03/15/2021 acquisition per client bank statement; long-term.",
+   "authority": "Treas. Reg. 1.1012-1(j); client bank statement",
+   "category": "judgment",
+   "findingId": "crypto-basis-C6",
+   "target": "F8949.K.C6",
+   "id": "e-mv8w454q-6maxn",
+   "at": "2026-10-15T01:58:52.922Z",
+   "actor": "st-01"
+  },
+  {
+   "kind": "finding.status",
+   "findingId": "sep-excess",
+   "status": "dismissed",
+   "reason": "Client will withdraw the excess plus earnings before the extended due date; letter sent.",
+   "id": "e-mv8w454q-pj38x",
+   "at": "2026-10-15T01:58:52.922Z",
+   "actor": "st-01"
+  },
+  {
+   "kind": "finding.status",
+   "findingId": "form-3520",
+   "status": "dismissed",
+   "reason": "Outside this return; separate engagement offered for the 2023 Form 3520.",
+   "id": "e-mv8w454q-2hco8",
+   "at": "2026-10-15T01:58:52.922Z",
+   "actor": "st-01"
+  },
+  {
+   "kind": "step",
+   "step": "Identity verified",
+   "done": true,
+   "id": "e-mv8w454q-5x3ef",
+   "at": "2026-10-15T01:58:52.922Z",
+   "actor": "st-01"
+  },
+  {
+   "kind": "step",
+   "step": "Prior-year return reviewed",
+   "done": true,
+   "id": "e-mv8w454q-t6buk",
+   "at": "2026-10-15T01:58:52.922Z",
+   "actor": "st-01"
+  },
+  {
+   "kind": "step",
+   "step": "Prior-year variances explained",
+   "done": true,
+   "id": "e-mv8w454q-crzdq",
+   "at": "2026-10-15T01:58:52.922Z",
+   "actor": "st-01"
+  },
+  {
+   "kind": "step",
+   "step": "Carryovers agreed to prior year",
+   "done": true,
+   "id": "e-mv8w454q-hsrxm",
+   "at": "2026-10-15T01:58:52.922Z",
+   "actor": "st-01"
+  },
+  {
+   "kind": "step",
+   "step": "Estimated payments agreed to IRS and FTB records",
+   "done": true,
+   "id": "e-mv8w454q-bezty",
+   "at": "2026-10-15T01:58:52.922Z",
+   "actor": "st-01"
+  },
+  {
+   "kind": "judgment",
+   "jId": "j-dd",
+   "topic": "Form 8867 paid preparer due diligence (CTC/ODC)",
+   "decision": "Interviewed taxpayers; qualifying child and other dependent confirmed; records retained.",
+   "authority": "IRC §6695(g); Treas. Reg. §1.6695-2",
+   "category": "due_diligence",
+   "id": "e-mv8w454q-cmodr",
+   "at": "2026-10-15T01:58:52.922Z",
+   "actor": "st-01"
+  },
+  {
+   "kind": "step",
+   "step": "Due diligence completed",
+   "done": true,
+   "id": "e-mv8w454q-0z56z",
+   "at": "2026-10-15T01:58:52.922Z",
+   "actor": "st-01"
+  },
+  {
+   "kind": "doc.disposition",
+   "docId": "D71",
+   "status": "informational",
+   "reason": "Social Security card received after preparation; see the dependent SSN check.",
+   "id": "e-mv8w454r-cwwpt",
+   "at": "2026-10-15T01:58:52.923Z",
+   "actor": "st-01"
+  },
+  {
+   "kind": "adjust.approve",
+   "adjId": "adj-pns9ott",
+   "id": "e-mv8w460f-58dab",
+   "at": "2026-10-15T01:58:54.063Z",
+   "actor": "st-03",
+   "batch": "b-mv8w460f-b6lc3"
+  },
+  {
+   "kind": "adjust.approve",
+   "adjId": "adj-442ldoq",
+   "id": "e-mv8w460f-immyr",
+   "at": "2026-10-15T01:58:54.063Z",
+   "actor": "st-03",
+   "batch": "b-mv8w460f-b6lc3"
+  },
+  {
+   "kind": "adjust.approve",
+   "adjId": "adj-mv8w44em-45g2t",
+   "id": "e-mv8w460f-ku2x4",
+   "at": "2026-10-15T01:58:54.063Z",
+   "actor": "st-03",
+   "batch": "b-mv8w460f-b6lc3"
+  },
+  {
+   "kind": "adjust.approve",
+   "adjId": "adj-mv8w44em-7ytuz",
+   "id": "e-mv8w460f-pyvwk",
+   "at": "2026-10-15T01:58:54.063Z",
+   "actor": "st-03",
+   "batch": "b-mv8w460f-b6lc3"
+  },
+  {
+   "kind": "adjust.approve",
+   "adjId": "adj-mv8w44em-vjcyg",
+   "id": "e-mv8w460f-o9gag",
+   "at": "2026-10-15T01:58:54.063Z",
+   "actor": "st-03",
+   "batch": "b-mv8w460f-b6lc3"
+  },
+  {
+   "kind": "adjust.approve",
+   "adjId": "adj-mv8w44em-96w73",
+   "id": "e-mv8w460f-4od9r",
+   "at": "2026-10-15T01:58:54.063Z",
+   "actor": "st-03",
+   "batch": "b-mv8w460f-b6lc3"
+  },
+  {
+   "kind": "adjust.approve",
+   "adjId": "adj-mv8w44em-jx72k",
+   "id": "e-mv8w460f-xxmv7",
+   "at": "2026-10-15T01:58:54.063Z",
+   "actor": "st-03",
+   "batch": "b-mv8w460f-b6lc3"
+  },
+  {
+   "kind": "adjust.approve",
+   "adjId": "adj-mv8w44em-dem1l",
+   "id": "e-mv8w460f-m7b5z",
+   "at": "2026-10-15T01:58:54.063Z",
+   "actor": "st-03",
+   "batch": "b-mv8w460f-b6lc3"
+  },
+  {
+   "kind": "adjust.approve",
+   "adjId": "adj-mv8w44en-yicol",
+   "id": "e-mv8w460f-4iyfo",
+   "at": "2026-10-15T01:58:54.063Z",
+   "actor": "st-03",
+   "batch": "b-mv8w460f-b6lc3"
+  },
+  {
+   "kind": "adjust.approve",
+   "adjId": "adj-mv8w44en-y18g7",
+   "id": "e-mv8w460f-f79tb",
+   "at": "2026-10-15T01:58:54.063Z",
+   "actor": "st-03",
+   "batch": "b-mv8w460f-b6lc3"
+  },
+  {
+   "kind": "signoff",
+   "scope": "return",
+   "level": "reviewer",
+   "snapshot": {
+    "F1040.1a": 212400,
+    "F1040.1z": 212400,
+    "F1040.2b": 4734,
+    "F1040.3a": 5970,
+    "F1040.3b": 7060,
+    "F1040.4a": 14026,
+    "F1040.4b": 26,
+    "F1040.7": 132022,
+    "F1040.8": 61738,
+    "F1040.9": 417980,
+    "F1040.10": 20997,
+    "F1040.11": 396983,
+    "F1040.12": 85706,
+    "F1040.13": 12971,
+    "F1040.14": 98677,
+    "F1040.15": 298306,
+    "F1040.16": 59727,
+    "F1040.17": 3871,
+    "F1040.18": 63598,
+    "F1040.19": 400,
+    "F1040.20": 396,
+    "F1040.22": 62802,
+    "F1040.23": 19160,
+    "F1040.24": 81962,
+    "F1040.25a": 25400,
+    "F1040.25d": 25400,
+    "F1040.26": 12000,
+    "F1040.31": 39342,
+    "F1040.33": 76742,
+    "F1040.37": 5220,
+    "F1040.38": 164,
+    "F540NR.13": 396983,
+    "F540NR.17": 442491,
+    "F540NR.18": 59126,
+    "F540NR.19": 383365,
+    "F540NR.31": 32328,
+    "F540NR.32": 216518,
+    "F540NR.34": 0.6347,
+    "F540NR.35": 267822,
+    "F540NR.36": 0.0766,
+    "F540NR.37": 20515,
+    "F540NR.39": 797,
+    "F540NR.40": 19718,
+    "F540NR.61": 0,
+    "F540NR.64": 18874,
+    "F540NR.71": 13130,
+    "F540NR.72": 10500,
+    "F540NR.73": 0,
+    "F540NR.78": 23630,
+    "F540NR.97": 8256,
+    "adj:adj-mv8w44em-45g2t": 129569,
+    "adj:adj-mv8w44em-7ytuz": 140,
+    "adj:adj-mv8w44em-vjcyg": -620,
+    "adj:adj-mv8w44em-96w73": 5880,
+    "adj:adj-mv8w44em-jx72k": 151300,
+    "adj:adj-mv8w44em-dem1l": 0,
+    "adj:adj-mv8w44en-f7k5u": 8100,
+    "adj:adj-mv8w44en-9eqcd": 5670,
+    "adj:adj-mv8w44en-yicol": 6508,
+    "adj:adj-mv8w44en-n67dr": 2900,
+    "adj:adj-mv8w44en-t1v63": 19697,
+    "adj:adj-mv8w44en-37yy7": 0,
+    "adj:adj-mv8w44en-gcbiv": 12000,
+    "adj:adj-mv8w44en-y18g7": 10500,
+    "adj:adj-mv8w44en-rhmwu": -60,
+    "adj:adj-mv8w44en-34lbf": 1871,
+    "adj:adj-mv8w44en-6tqi0": 2172,
+    "adj:adj-mv8w44en-x363z": 6634,
+    "adj:adj-pns9ott": 2300,
+    "adj:adj-dwjqm5q": 14041,
+    "adj:adj-442ldoq": 0,
+    "adj:adj-wzvphpm": 2275
+   },
+   "id": "e-mv8w47n7-qh2n9",
+   "at": "2026-10-15T01:58:56.179Z",
+   "actor": "st-02"
+  },
+  {
+   "kind": "signoff",
+   "scope": "return",
+   "level": "partner",
+   "snapshot": {
+    "F1040.1a": 212400,
+    "F1040.1z": 212400,
+    "F1040.2b": 4734,
+    "F1040.3a": 5970,
+    "F1040.3b": 7060,
+    "F1040.4a": 14026,
+    "F1040.4b": 26,
+    "F1040.7": 132022,
+    "F1040.8": 61738,
+    "F1040.9": 417980,
+    "F1040.10": 20997,
+    "F1040.11": 396983,
+    "F1040.12": 85706,
+    "F1040.13": 12971,
+    "F1040.14": 98677,
+    "F1040.15": 298306,
+    "F1040.16": 59727,
+    "F1040.17": 3871,
+    "F1040.18": 63598,
+    "F1040.19": 400,
+    "F1040.20": 396,
+    "F1040.22": 62802,
+    "F1040.23": 19160,
+    "F1040.24": 81962,
+    "F1040.25a": 25400,
+    "F1040.25d": 25400,
+    "F1040.26": 12000,
+    "F1040.31": 39342,
+    "F1040.33": 76742,
+    "F1040.37": 5220,
+    "F1040.38": 164,
+    "F540NR.13": 396983,
+    "F540NR.17": 442491,
+    "F540NR.18": 59126,
+    "F540NR.19": 383365,
+    "F540NR.31": 32328,
+    "F540NR.32": 216518,
+    "F540NR.34": 0.6347,
+    "F540NR.35": 267822,
+    "F540NR.36": 0.0766,
+    "F540NR.37": 20515,
+    "F540NR.39": 797,
+    "F540NR.40": 19718,
+    "F540NR.61": 0,
+    "F540NR.64": 18874,
+    "F540NR.71": 13130,
+    "F540NR.72": 10500,
+    "F540NR.73": 0,
+    "F540NR.78": 23630,
+    "F540NR.97": 8256,
+    "adj:adj-mv8w44em-45g2t": 129569,
+    "adj:adj-mv8w44em-7ytuz": 140,
+    "adj:adj-mv8w44em-vjcyg": -620,
+    "adj:adj-mv8w44em-96w73": 5880,
+    "adj:adj-mv8w44em-jx72k": 151300,
+    "adj:adj-mv8w44em-dem1l": 0,
+    "adj:adj-mv8w44en-f7k5u": 8100,
+    "adj:adj-mv8w44en-9eqcd": 5670,
+    "adj:adj-mv8w44en-yicol": 6508,
+    "adj:adj-mv8w44en-n67dr": 2900,
+    "adj:adj-mv8w44en-t1v63": 19697,
+    "adj:adj-mv8w44en-37yy7": 0,
+    "adj:adj-mv8w44en-gcbiv": 12000,
+    "adj:adj-mv8w44en-y18g7": 10500,
+    "adj:adj-mv8w44en-rhmwu": -60,
+    "adj:adj-mv8w44en-34lbf": 1871,
+    "adj:adj-mv8w44en-6tqi0": 2172,
+    "adj:adj-mv8w44en-x363z": 6634,
+    "adj:adj-pns9ott": 2300,
+    "adj:adj-dwjqm5q": 14041,
+    "adj:adj-442ldoq": 0,
+    "adj:adj-wzvphpm": 2275
+   },
+   "id": "e-mv8w48e2-d1q89",
+   "at": "2026-10-15T01:58:57.146Z",
+   "actor": "st-03"
+  }
+ ]
+}

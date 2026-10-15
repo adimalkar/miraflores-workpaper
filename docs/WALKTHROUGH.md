@@ -1,5 +1,7 @@
 # Video walkthrough: script (about 8–10 minutes)
 
+**The full recording script, with screenshots, talk track, run sheet and cheat sheet, is [`Proof_Walkthrough_and_Recording_Script.pdf`](Proof_Walkthrough_and_Recording_Script.pdf).** To skip the filing setup on camera, Reset demo, then Import [`demo/ready-to-send.json`](demo/ready-to-send.json) from Firm › Record.
+
 Start in a fresh browser (or Firm › Record › Reset demo). Keep a second tab ready.
 
 1. **Today (45 s).** The greeting, the role-aware 'Up next' queue with inline *Apply fix*, the bottom line and the path to filing. Then press `f` for focus mode: `a` applies a fix and advances; `Tab` switches to *Verify numbers*, where `v` verifies a number against its highlighted source field.
