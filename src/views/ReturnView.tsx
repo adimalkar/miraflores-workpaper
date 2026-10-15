@@ -26,7 +26,11 @@ export function ReturnView({ focus }: { focus?: string }) {
     ...AREAS.map((a) => ({ id: a.id, label: a.short })),
   ]
   const roots = useMemo(() => {
-    if (tab === 'federal') return ['F1040.37', 'F1040.38']
+    if (tab === 'federal') {
+      // The form itself, in line order: each line opens into what it was built from.
+      const ln = (k: string) => { const x = k.split('.')[1]; return [Number(x.match(/^\d+/)?.[0] ?? 0), x] as const }
+      return m.current.lines.filter((l) => l.form === 'F1040').map((l) => l.key).sort((a, b) => ln(a)[0] - ln(b)[0] || ln(a)[1].localeCompare(ln(b)[1]))
+    }
     const lines = m.linesByArea.get(tab as AreaId) ?? []
     const keys = new Set(lines.map((l) => l.key))
     const size = (k: string, seen = new Set<string>()): number => {
@@ -44,7 +48,7 @@ export function ReturnView({ focus }: { focus?: string }) {
       <PageHeader
         eyebrow="Return"
         title={area ? area.name : 'How the return was built'}
-        sub={area ? areaBlurb(m, area.id) : 'Start from the amount owed and open any line to see what it was built from, down to the document field. Nothing here is a spreadsheet cell: each line carries its own proof.'}
+        sub={area ? areaBlurb(m, area.id) : 'Form 1040 line by line. Open any line to see what it was built from, down to the document field. Each line carries its own proof.'}
       />
       <Tabs value={tab} onChange={(v) => { setSel(new Set()); navigate(`/return/${v}`) }} items={items as { id: string; label: string }[]} className="mb-4 rounded-xl bg-ink-100/60 p-1" />
       <Toolbar filter={filter} setFilter={setFilter} sel={sel} setSel={setSel} />
@@ -53,7 +57,7 @@ export function ReturnView({ focus }: { focus?: string }) {
           <span>Line</span><span className="hidden text-right sm:block">{m.packet.household.tax_year - 1}</span><span className="text-right">{m.packet.household.tax_year}</span><span className="text-right">Proof</span>
         </div>
         <div>
-          {roots.map((k, i) => <Node key={`${tab}-${k}`} k={k} depth={0} filter={filter} sel={sel} setSel={setSel} defaultOpen={i === 0 || roots.length < 3} />)}
+          {roots.map((k, i) => <Node key={`${tab}-${k}`} k={k} depth={0} filter={filter} sel={sel} setSel={setSel} defaultOpen={tab !== 'federal' && (i === 0 || roots.length < 3)} />)}
         </div>
       </Card>
     </div>

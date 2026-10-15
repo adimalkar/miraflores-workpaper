@@ -18,6 +18,28 @@ npm run build      # static site in dist/ — host anywhere (relative paths)
 
 The packet is served unmodified from `public/packet/okafor_lindqvist_2025_packet.json` and fetched at startup.
 
+## How it works day to day
+
+- **Today** opens on what *you* should do next, based on your role:
+  - the errors and decisions from the checks;
+  - notes assigned to you and client answers;
+  - approvals and sign-offs that are ready, or that reopened.
+
+  It also shows the bottom line, the path to filing and the team's recent activity.
+- **Focus mode** (`f`) works that queue one item at a time from the keyboard, with the evidence next to the source document:
+
+  | Key | Action |
+  |---|---|
+  | `j` / `k` | Next / previous item |
+  | `a` | Apply the fix |
+  | `v` | Verify |
+  | `1`–`5` | Choose the verification method |
+  | `e` | Adjust |
+  | `n` | Note |
+
+  The "Verify numbers" queue walks every document-backed number, largest first.
+- **More shortcuts:** `?` lists them all; `g` then a letter jumps to a section; `⌘K` searches everything, including amounts.
+
 ## What's where
 
 | Need from the brief | Where it lives |

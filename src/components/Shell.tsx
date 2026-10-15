@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import {
-  LayoutDashboard, GitBranch, FileStack, ShieldAlert, MessagesSquare, Table2, History, Send, Building2, Search,
-  ChevronDown, Check, Lock, Undo2, Users, Eye,
+  Sun, Crosshair, GitBranch, FileStack, ShieldAlert, MessagesSquare, Table2, History, Send, Building2, Search,
+  ChevronDown, ChevronRight, Check, Lock, Undo2, Users, Eye,
 } from 'lucide-react'
 import { useStore } from '../store/store'
+import { useWorkQueue } from '../store/queue'
 import { useFindingState, useModel, usePerms, useWork } from '../store/context'
 import { ROLE_LABEL, initials, personName } from '../store/permissions'
 import { Avatar, Chip, Kbd, cx } from './ui'
@@ -23,17 +24,20 @@ import { Firm } from '../views/Firm'
 import { ClientPortal } from '../views/ClientPortal'
 import { ago } from '../lib/format'
 import { returnForms } from '../data/derived'
+import { Focus } from '../views/Focus'
+import { ShortcutSheet, Welcome } from './Onboarding'
 
-const NAV = [
-  { route: '/overview', label: 'Overview', icon: LayoutDashboard },
-  { route: '/return', label: 'Return', icon: GitBranch },
-  { route: '/documents', label: 'Documents', icon: FileStack },
-  { route: '/checks', label: 'Checks', icon: ShieldAlert },
-  { route: '/review', label: 'Review', icon: MessagesSquare },
-  { route: '/schedules', label: 'Schedules', icon: Table2 },
-  { route: '/season', label: 'Season', icon: History },
-  { route: '/filing', label: 'Filing', icon: Send },
-  { route: '/firm', label: 'Firm', icon: Building2 },
+export const NAV = [
+  { route: '/overview', label: 'Today', icon: Sun, key: 't', group: 'Work' },
+  { route: '/focus', label: 'Focus', icon: Crosshair, key: 'f', group: 'Work' },
+  { route: '/checks', label: 'Checks', icon: ShieldAlert, key: 'c', group: 'Work' },
+  { route: '/review', label: 'Review', icon: MessagesSquare, key: 'v', group: 'Work' },
+  { route: '/return', label: 'Return', icon: GitBranch, key: 'r', group: 'The return' },
+  { route: '/documents', label: 'Documents', icon: FileStack, key: 'd', group: 'The return' },
+  { route: '/schedules', label: 'Schedules', icon: Table2, key: 's', group: 'The return' },
+  { route: '/season', label: 'Season', icon: History, key: 'e', group: 'Lifecycle' },
+  { route: '/filing', label: 'Filing', icon: Send, key: 'l', group: 'Lifecycle' },
+  { route: '/firm', label: 'Firm', icon: Building2, key: 'm', group: 'Lifecycle' },
 ] as const
 
 export function Shell() {
@@ -46,8 +50,22 @@ export function Shell() {
   const mainRef = useRef<HTMLElement>(null)
   useEffect(() => { mainRef.current?.scrollTo({ top: 0 }) }, [route])
 
+  const [sheet, setSheet] = useState(false)
   useEffect(() => {
+    let g = 0
     const h = (e: KeyboardEvent) => {
+      const typing = !!(e.target as HTMLElement).closest('input,textarea,select,[contenteditable],[role=dialog]')
+      const s0 = useStore.getState()
+      if (!typing && !e.metaKey && !e.ctrlKey && !e.altKey && !s0.palette && !s0.actor.startsWith('cu-')) {
+        if (e.key === '?') { e.preventDefault(); setSheet((x) => !x); return }
+        if (g && Date.now() - g < 1200) {
+          const n = NAV.find((x) => x.key === e.key)
+          g = 0
+          if (n) { e.preventDefault(); s0.navigate(n.route); return }
+        }
+        if (e.key === 'g') { g = Date.now(); return }
+        if (e.key === 'f' && !s0.route.startsWith('/focus')) { e.preventDefault(); s0.navigate('/focus'); return }
+      }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setPalette(true) }
       if (e.key === '/' && !(e.target as HTMLElement).closest('input,textarea,select,[contenteditable]')) { e.preventDefault(); setPalette(true) }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && !(e.target as HTMLElement).closest('input,textarea')) {
@@ -81,6 +99,18 @@ export function Shell() {
   }
 
   const view = route.split('/')[1]
+  if (view === 'focus') {
+    return (
+      <>
+        <Focus mode={route.split('/')[2]} />
+        <AnimatePresence>{trace && <div key="trace" className="fixed inset-y-0 right-0 z-[60] flex shadow-pop"><TracePanel lineKey={trace} /></div>}</AnimatePresence>
+        <div className="relative z-[61]"><AnimatePresence>{doc && <DocViewer key="doc" />}</AnimatePresence></div>
+        <CommandPalette />
+        <Toasts />
+        <ShortcutSheet open={sheet} onClose={() => setSheet(false)} />
+      </>
+    )
+  }
   return (
     <div className="flex h-full overflow-hidden">
       <Rail />
@@ -111,6 +141,8 @@ export function Shell() {
       <AnimatePresence>{doc && <DocViewer key="doc" />}</AnimatePresence>
       <CommandPalette />
       <Toasts />
+      <ShortcutSheet open={sheet} onClose={() => setSheet(false)} />
+      <Welcome />
     </div>
   )
 }
@@ -156,10 +188,12 @@ function Rail() {
   const w = useWork()
   const openChecks = fs.filter((x) => x.status === 'open').length
   const openNotes = [...w.notes.values()].filter((n) => !n.resolved).length + [...w.questions.values()].filter((q) => !q.answer).length
+  const queueCount = useWorkQueue().filter((i) => i.kind !== 'verify' && i.kind !== 'admin').length
   const counts: Record<string, ReactNode> = {
     '/documents': m.docs.length,
     '/checks': openChecks || undefined,
     '/review': openNotes || undefined,
+    '/focus': queueCount || undefined,
   }
   return (
     <nav className="no-print hidden w-[228px] shrink-0 flex-col bg-ink text-ink-200 shadow-rail md:flex" aria-label="Workpaper sections">
@@ -175,12 +209,13 @@ function Rail() {
           <div className="text-xs text-ink-300">{m.packet.household.tax_year} · {m.packet.household.filing_status.split('_').map((x) => x[0].toUpperCase()).join('')} · {returnForms(m).replace('Form ', '')}</div>
         </div>
       </div>
-      <ul className="flex-1 space-y-0.5 px-3">
-        {NAV.map((n) => {
+      <ul className="scroll-thin flex-1 space-y-0.5 overflow-y-auto px-3">
+        {NAV.map((n, ni) => {
           const active = route.startsWith(n.route)
           const Icon = n.icon
           return (
             <li key={n.route}>
+              {(ni === 0 || NAV[ni - 1].group !== n.group) && <div className={cx('px-3 pb-1.5 text-[10px] font-medium uppercase tracking-[0.16em] text-ink-500', ni > 0 && 'pt-4')}>{n.group}</div>}
               <button
                 onClick={() => navigate(n.route)}
                 className={cx('group relative flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors', active ? 'text-white' : 'text-ink-300 hover:bg-white/[0.05] hover:text-white')}
@@ -190,8 +225,9 @@ function Rail() {
                 {active && <motion.span layoutId="rail-tick" className="absolute -left-3 top-2 h-5 w-[3px] rounded-r bg-hilite" />}
                 <Icon size={16} className="relative" />
                 <span className="relative font-medium">{n.label}</span>
+                {counts[n.route] == null && <span className="num relative ml-auto hidden text-[10px] text-ink-500 group-hover:inline">g {n.key}</span>}
                 {counts[n.route] != null && (
-                  <span className={cx('num relative ml-auto rounded-full px-1.5 text-2xs', n.route === '/checks' ? 'bg-pencil text-white' : 'bg-white/10 text-ink-200')}>{counts[n.route]}</span>
+                  <span className={cx('num relative ml-auto rounded-full px-1.5 text-2xs', n.route === '/checks' ? 'bg-pencil text-white' : n.route === '/focus' ? 'bg-hilite text-ink' : 'bg-white/10 text-ink-200')}>{counts[n.route]}</span>
                 )}
               </button>
             </li>
@@ -263,6 +299,20 @@ export function RoleSwitcher({ dark }: { dark?: boolean }) {
   )
 }
 
+function Breadcrumb() {
+  const route = useStore((s) => s.route)
+  const { findings } = useModel()
+  const [, view, sub] = route.split('/')
+  const n = NAV.find((x) => x.route === `/${view}`) ?? NAV[0]
+  const subLabel = !sub ? null : view === 'checks' ? findings.find((f) => f.id === sub)?.title : decodeURIComponent(sub).replace(/[-_]/g, ' ')
+  return (
+    <div className="hidden min-w-0 shrink items-center gap-1.5 text-sm lg:flex">
+      <span className="font-medium text-ink">{n.label}</span>
+      {subLabel && <><ChevronRight size={13} className="shrink-0 text-ink-300" /><span className="max-w-[260px] truncate capitalize-first text-ink-500">{subLabel}</span></>}
+    </div>
+  )
+}
+
 function TopBar() {
   const { m } = useModel()
   const setPalette = useStore((s) => s.setPalette)
@@ -277,9 +327,10 @@ function TopBar() {
   return (
     <div className="no-print flex h-14 shrink-0 items-center gap-3 border-b border-ink-200/70 bg-white/80 px-4 backdrop-blur lg:px-6">
       <div className="md:hidden"><RoleSwitcher /></div>
+      <Breadcrumb />
       <button
         onClick={() => setPalette(true)}
-        className="group flex h-9 min-w-0 max-w-md flex-1 items-center gap-2 rounded-lg bg-ink-50 px-3 text-sm text-ink-400 ring-1 ring-ink-200/80 transition hover:bg-white hover:ring-ink-300"
+        className="group flex h-9 min-w-0 max-w-sm flex-1 items-center gap-2 rounded-lg bg-ink-50 px-3 text-sm text-ink-400 ring-1 ring-ink-200/80 transition hover:bg-white hover:ring-ink-300"
       >
         <Search size={15} />
         <span className="truncate"><span className="sm:hidden">Search</span><span className="hidden sm:inline">Search a number, line, document, person…</span></span>
@@ -331,7 +382,7 @@ function Toasts() {
   return (
     <div className="pointer-events-none fixed bottom-5 left-1/2 z-[90] flex -translate-x-1/2 flex-col items-center gap-2" aria-live="polite">
       <AnimatePresence>
-        {toasts.map((t) => (
+        {toasts.slice(-2).map((t) => (
           <motion.div
             key={t.id} layout
             initial={{ opacity: 0, y: 16, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: 0.96 }}

@@ -1,5 +1,5 @@
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode, useEffect } from 'react'
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence, motion, useMotionValue, useSpring, useTransform } from 'motion/react'
 import clsx from 'clsx'
 import { X } from 'lucide-react'
 
@@ -173,4 +173,13 @@ export function Meter({ value, max, tone = 'tick', className }: { value: number;
       <motion.div className={cx('h-full rounded-full', bg)} initial={{ width: 0 }} animate={{ width: `${p * 100}%` }} transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }} />
     </div>
   )
+}
+
+/** A number that rolls to its new value instead of jumping. */
+export function AnimatedNumber({ value, format, className }: { value: number; format: (n: number) => string; className?: string }) {
+  const mv = useMotionValue(value)
+  const spring = useSpring(mv, { stiffness: 140, damping: 22, mass: 0.6 })
+  const text = useTransform(spring, (v) => format(Math.round(v)))
+  useEffect(() => { mv.set(value) }, [mv, value])
+  return <motion.span className={className}>{text}</motion.span>
 }

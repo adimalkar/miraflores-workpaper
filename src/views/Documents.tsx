@@ -55,22 +55,13 @@ export function Documents({ focus }: { focus?: string }) {
         title="Document index"
         sub="Every document the client or firm supplied, where each one landed on the return, and why any that didn't land were set aside."
       />
-      <div className="mb-5 grid gap-4 md:grid-cols-3">
-        <Card className="p-4">
-          <div className="eyebrow">Accounted for</div>
-          <div className="display mt-1 text-2xl font-semibold"><span className="num">{accounted}</span><span className="text-ink-300"> / {m.docs.length}</span></div>
-          <Meter value={accounted} max={m.docs.length} className="mt-2" tone={accounted === m.docs.length ? 'tick' : 'amber'} />
-        </Card>
-        <Card className="p-4">
-          <div className="eyebrow">Extracted values</div>
-          <div className="display mt-1 text-2xl font-semibold num">{m.packet.extracted_values.length.toLocaleString()}</div>
-          <div className="mt-1 text-2xs text-ink-500">{[...w.verifications.keys()].filter((k) => k.startsWith('ev-')).length} verified at the field level · {w.extractionFix.size} corrected</div>
-        </Card>
-        <Card className="p-4">
-          <div className="eyebrow">Arrived after “upload complete”</div>
-          <div className="display mt-1 text-2xl font-semibold num">{m.docs.filter((d) => d.received_at > uploadComplete).length}</div>
-          <div className="mt-1 text-2xs text-ink-500">Corrected 1099, late K-1s, SEP, 5498, paystub, SS card, exam letter</div>
-        </Card>
+      <div className="mb-6 flex flex-wrap items-center gap-x-8 gap-y-3 border-y border-ink-200/80 py-4">
+        <div className="flex items-center gap-3">
+          <Meter value={accounted} max={m.docs.length} className="w-32" tone={accounted === m.docs.length ? 'tick' : 'amber'} />
+          <span className="text-sm text-ink-700"><b className="num">{accounted}</b> of {m.docs.length} documents accounted for</span>
+        </div>
+        <span className="text-sm text-ink-700"><b className="num">{m.packet.extracted_values.length.toLocaleString()}</b> values read · {[...w.verifications.keys()].filter((k) => k.startsWith('ev-')).length} verified at the field · {w.extractionFix.size} corrected</span>
+        <span className="text-sm text-ink-700" title={m.docs.filter((d) => d.received_at > uploadComplete).map((d) => d.title).join('\n')}><b className="num">{m.docs.filter((d) => d.received_at > uploadComplete).length}</b> arrived after the client marked upload complete</span>
       </div>
       <div className="mb-4 flex flex-wrap gap-2">
         {([['all', 'All'], ['unaccounted', 'Unaccounted'], ['late', 'Arrived late'], ['corrected', 'Corrected / superseded'], ['partial', 'Not fully read']] as [F, string][]).map(([id, label]) => (

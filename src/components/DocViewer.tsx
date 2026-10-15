@@ -216,7 +216,7 @@ function locate(text: string, evs: ExtractedValue[]): Span[] {
   return spans.sort((a, b) => a.start - b.start)
 }
 
-function TextPage({ doc, text, evs, focus, sensitive, m }: { doc: Doc; text: string; evs: ExtractedValue[]; focus?: string; sensitive: boolean; m: Model }) {
+export function TextPage({ doc, text, evs, focus, sensitive, m }: { doc: Doc; text: string; evs: ExtractedValue[]; focus?: string; sensitive: boolean; m: Model }) {
   const ref = useRef<HTMLDivElement>(null)
   const spans = useMemo(() => locate(text, evs), [text, evs])
   const missing = evs.filter((e) => !spans.some((s) => s.ev.id === e.id))

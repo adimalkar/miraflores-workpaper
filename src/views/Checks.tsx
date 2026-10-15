@@ -20,6 +20,21 @@ const KIND: Record<string, string> = {
   engine: 'Engine error', extraction: 'Misread document', conflict: 'Sources disagree', completeness: 'Completeness', judgment: 'Judgment call', outside: 'Outside filing',
 }
 
+/** A short, human label for an evidence reference: document and field rather than an id. */
+export function refLabel(m: ReturnType<typeof useModel>['m'], r: string) {
+  const ref = m.resolveRef(r)
+  if (ref.kind === 'ev') { const e = m.ev.get(r)!; return `${e.document_id} · ${e.label.length > 34 ? e.label.slice(0, 32) + '…' : e.label}` }
+  if (ref.kind === 'doc') return `${r} · ${m.docById.get(r)?.document_type.replace(/_/g, ' ')}`
+  if (ref.kind === 'page') return `${ref.docId} page ${ref.page}`
+  if (ref.kind === 'qa') return `Questionnaire ${r.slice(3)}`
+  if (ref.kind === 'msg') return `Client message ${r.slice(4)}`
+  if (ref.kind === 'call') return 'Call notes'
+  if (ref.kind === 'py') return `Prior year · ${r.split('/').filter(Boolean).slice(-1)[0]}`
+  if (ref.kind === 'agency') return r.includes('ftb') ? 'FTB account' : 'IRS transcript'
+  if (ref.kind === 'household') return `Organizer · ${ref.label.split('· ')[1] ?? ref.id}`
+  return r
+}
+
 export function proposalEffect(f: Finding, m: ReturnType<typeof useModel>['m']): TaxEffect {
   return f.proposals.reduce((acc, p) => ('effects' in p ? addEffects(acc, effectOf(p.effects, m.current)) : acc), ZERO_EFFECT)
 }
@@ -76,12 +91,9 @@ export function Checks({ focus }: { focus?: string }) {
           <Button variant="primary" icon={<Wand2 size={14} />} disabled={!!w.frozenAt} onClick={() => applyMany(fs.filter((x) => x.status === 'open' && x.f.proposals.length && x.f.kind !== 'judgment').map((x) => x.f.id))}>Apply all clear-cut fixes</Button>
         ) : undefined}
       />
-      <div className="mb-5 grid gap-4 sm:grid-cols-4">
-        <Stat label="Open" value={fs.filter((x) => x.status === 'open').length} tone="pencil" />
-        <Stat label="Engine was silent on" value={engineSilent} />
-        <Stat label="Federal tax if all open fixes applied" value={signed(allEffect.federalTax)} mono />
-        <Stat label="California tax if applied" value={signed(allEffect.californiaTax)} mono />
-      </div>
+      <p className="mb-6 max-w-3xl border-l-2 border-pencil/60 pl-4 text-[15px] leading-relaxed text-ink-700">
+        <b className="num text-pencil">{fs.filter((x) => x.status === 'open').length}</b> open, <b className="num">{fs.filter((x) => x.status === 'resolved').length}</b> resolved, <b className="num">{fs.filter((x) => x.status === 'dismissed').length}</b> dismissed. The engine raised nothing for <b className="num">{engineSilent}</b> of these. Applying every open proposal would move federal tax by <b className="num">{signed(allEffect.federalTax)}</b> and state tax by <b className="num">{signed(allEffect.californiaTax)}</b>.
+      </p>
       <Tabs value={tab} onChange={(v) => { setTab(v); setPicked(new Set()) }} className="mb-4 w-fit rounded-xl bg-ink-100/60 p-1" items={[
         { id: 'open', label: 'Open', count: fs.filter((x) => x.status === 'open').length },
         { id: 'resolved', label: 'Resolved', count: fs.filter((x) => x.status === 'resolved').length },
@@ -145,7 +157,7 @@ function Stat({ label, value, tone, mono }: { label: string; value: React.ReactN
   )
 }
 
-function FindingDetail({ x }: { x: ReturnType<typeof useFindingState>[number] }) {
+export function FindingDetail({ x }: { x: ReturnType<typeof useFindingState>[number] }) {
   const { m } = useModel()
   const w = useWork()
   const perms = usePerms()
@@ -200,7 +212,7 @@ function FindingDetail({ x }: { x: ReturnType<typeof useFindingState>[number] })
                   <div className="mt-1 flex flex-wrap gap-1">
                     {fact.refs.map((r) => (
                       <button key={r} onClick={() => openRef(r)} className="num inline-flex items-center gap-1 rounded bg-white px-1.5 py-0.5 text-2xs text-ink-600 ring-1 ring-ink-200 hover:ring-ink-400">
-                        {r.startsWith('ev-') || /^D\d/.test(r) || r.startsWith('doc:') ? <FileText size={10} /> : <GitBranch size={10} />}{r.replace('py:/', 'prior ').replace('agency:/', '')}
+                        {r.startsWith('ev-') || /^D\d/.test(r) || r.startsWith('doc:') ? <FileText size={10} /> : <GitBranch size={10} />}{refLabel(m, r)}
                       </button>
                     ))}
                   </div>

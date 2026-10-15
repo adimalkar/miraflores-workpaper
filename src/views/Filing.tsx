@@ -123,24 +123,33 @@ export function Filing() {
             </motion.li>
           ))}
         </ol>
-        <div className="space-y-4">
+        <div className="space-y-4 lg:sticky lg:top-6 lg:self-start">
           <Card className="p-5">
             <div className="eyebrow mb-1">Amounts on approval</div>
             <div className="flex justify-between text-sm"><span>{dueLabel(fedBal, 'Federal')}</span><span className="num font-semibold">{money(Math.abs(fedBal))}</span></div>
             <div className="flex justify-between text-sm"><span>{dueLabel(caBal, 'State')}</span><span className="num font-semibold">{money(Math.abs(caBal))}</span></div>
             <p className="mt-2 text-2xs text-ink-500">Includes workpaper adjustments ({signed(w.effectTotal.federalBalance)} federal, {signed(w.effectTotal.californiaBalance)} state) estimated at {m.current.version} rates.</p>
           </Card>
-          <PostFiling fedBal={fedBal} onNotice={setNotice} />
-          <OutsideFilings />
+          <PostFiling part="plan" fedBal={fedBal} onNotice={setNotice} />
         </div>
       </div>
+      <section className="mt-12">
+        <div className="mb-4 border-b border-ink-200/80 pb-2.5"><h2 className="display text-lg font-semibold">After filing</h2></div>
+        <div className="grid gap-5 lg:grid-cols-2">
+          <PostFiling part="events" fedBal={fedBal} onNotice={setNotice} />
+          <PostFiling part="notices" fedBal={fedBal} onNotice={setNotice} />
+        </div>
+      </section>
+      <section className="mt-12">
+        <OutsideFilings />
+      </section>
       {notice && <NoticeRecord noticeId={notice} onClose={() => setNotice(null)} />}
       <ClientCopy open={copy} onClose={() => setCopy(false)} fedBal={fedBal} caBal={caBal} />
     </div>
   )
 }
 
-function PostFiling({ fedBal, onNotice }: { fedBal: number; onNotice: (id: string) => void }) {
+function PostFiling({ fedBal, onNotice, part }: { fedBal: number; onNotice: (id: string) => void; part: 'events' | 'notices' | 'plan' }) {
   const { m } = useModel()
   const w = useWork()
   const record = useStore((s) => s.record)
@@ -160,16 +169,17 @@ function PostFiling({ fedBal, onNotice }: { fedBal: number; onNotice: (id: strin
   const ty = m.packet.household.tax_year
   return (
     <>
-      <Card className="p-5">
-        <div className="mb-2 flex items-center gap-2"><FileWarning size={15} /><h3 className="display font-semibold">After filing</h3></div>
+      {part === 'events' && <Card className="p-5">
+        <div className="mb-2 flex items-center gap-2"><FileWarning size={15} /><h3 className="display font-semibold">Payments, refunds and reviews</h3></div>
         <ul className="space-y-2 text-sm text-ink-600">
           {paid && (fedBal > 0
             ? <li>Balance of <b className="num text-ink">{money(fedBal)}</b> paid {date(paid.at)}, {Math.round(days)} days after {date(due)}: interest ≈ <b className="num text-ink">{money(cost(fedBal))}</b> including failure-to-pay. {paid.detail}</li>
             : <li>With the workpaper's corrections the payments cover the tax: a federal refund of <b className="num text-ink">{money(-fedBal)}</b>, so no interest or failure-to-pay penalty. The engine's {m.current.version} balance of {money(m.current.summary.federal.balance_due)} would have cost ≈ {money(cost(m.current.summary.federal.balance_due))}.</li>)}
           {events.map((e) => <li key={e.id}>{date(e.at)} · {e.event.replace(/_/g, ' ')}{e.actor ? ` (${personName(m, e.actor)})` : ''}{e.detail ? `: ${e.detail}` : ''}</li>)}
         </ul>
-      </Card>
-      {notices.map((n) => (
+      </Card>}
+      {part === 'notices' && notices.length === 0 && <Card className="p-5 text-sm text-ink-500">No notices received.</Card>}
+      {part === 'notices' && notices.map((n) => (
         <Card key={n.id} className="p-5">
           <div className="mb-2 flex items-center gap-2"><Mail size={15} /><h3 className="display font-semibold">{n.type}</h3></div>
           <p className="text-xs text-ink-500">{n.agency} · tax year {n.tax_year} · dated {n.dated}{n.response_due ? ` · response due ${n.response_due}` : ''}</p>
@@ -177,7 +187,7 @@ function PostFiling({ fedBal, onNotice }: { fedBal: number; onNotice: (id: strin
           <Button size="sm" className="mt-3" variant="primary" onClick={() => onNotice(n.id)}>Build the response record</Button>
         </Card>
       ))}
-      <Card className="p-5">
+      {part === 'plan' && <Card className="p-5">
         <div className="mb-2 flex items-center gap-2"><CalendarRange size={15} /><h3 className="display font-semibold">Plan {ty + 1}</h3></div>
         <div className="space-y-1 text-sm">
           <div className="flex justify-between"><span className="text-ink-600">Federal safe harbor (110% of {ty} tax)</span><span className="num">{money(fed * 1.1)}</span></div>
@@ -189,7 +199,7 @@ function PostFiling({ fedBal, onNotice }: { fedBal: number; onNotice: (id: strin
         {plan.known_2026_changes_for_this_household && <ul className="mt-2 list-disc space-y-0.5 pl-4 text-xs text-ink-600">{plan.known_2026_changes_for_this_household.map((x) => <li key={x}>{x}</li>)}</ul>}
         <Button size="sm" className="mt-3" disabled={!perms.canEdit || !accepted} title={accepted ? '' : 'Roll forward after filing.'} onClick={() => record({ kind: 'filing', action: 'rolled-forward', detail: { carryovers: m.current.carryovers_out } }, { toast: `${ty + 1} file created with carryovers, assets, basis and open items` })}>Roll forward to {ty + 1}</Button>
         {w.filing.some((f) => f.action === 'rolled-forward') && <p className="mt-2 text-2xs text-tick-deep">Rolled forward. Carryovers, the asset register, basis records, the judgment log and every open item travel with their history.</p>}
-      </Card>
+      </Card>}
     </>
   )
 }
@@ -203,17 +213,17 @@ function OutsideFilings() {
   const items = useMemo(() => outsideFilings(m, fs, w), [m, fs, w])
   const TONE: Record<string, 'pencil' | 'amber' | 'tick' | 'neutral'> = { late: 'pencil', investigate: 'pencil', due: 'amber', covered: 'tick', agrees: 'tick', related: 'neutral' }
   return (
-    <Card className="p-5">
-      <h3 className="display mb-1 font-semibold">Outside filings identified</h3>
+    <div>
+      <div className="mb-4 flex flex-wrap items-baseline gap-x-3 border-b border-ink-200/80 pb-2.5"><h2 className="display text-lg font-semibold">Outside filings identified</h2><span className="num text-sm text-ink-400">{items.length}</span></div>
       <p className="mb-3 text-xs text-ink-500">Returns and forms this household or its entities must file that aren't part of this return, found from the engine's diagnostics, the checks, K-1 statements and the related returns.</p>
-      <ul className="space-y-2.5">{items.map((x) => (
+      <ul className="grid gap-x-8 gap-y-5 md:grid-cols-2">{items.map((x) => (
         <li key={x.id} className="text-sm">
           <div className="flex items-center gap-2 font-medium">{x.title}<Chip tone={TONE[x.status]} className="ml-auto">{x.status}</Chip></div>
           <p className="text-xs text-ink-600">{x.detail}</p>
           {(x.status === 'due' || x.status === 'late' || x.status === 'investigate') && perms.canEdit && <button onClick={() => record({ kind: 'step', step: `outside:${x.id}`, done: true, note: x.title }, { toast: `${x.title}: marked handled` })} className="mt-1 text-2xs font-medium text-ink-500 hover:text-ink hover:underline">Mark handled (client told in writing)</button>}
         </li>
       ))}</ul>
-    </Card>
+    </div>
   )
 }
 

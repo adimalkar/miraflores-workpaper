@@ -2,7 +2,9 @@
 
 Start in a fresh browser (or Firm › Record › Reset demo). Keep a second tab ready.
 
-1. **The thesis (45 s): Overview.**
+1. **Today (45 s).** The greeting, the role-aware 'Up next' queue with inline *Apply fix*, the bottom line and the path to filing. Then press `f` for focus mode: `a` applies a fix and advances; `Tab` switches to *Verify numbers*, where `v` verifies a number against its highlighted source field.
+
+1b. **The thesis: the proof map on Today.**
    - "The engine's output is a claim. The workpaper's job is the proof."
    - Point at the proof map: 627 squares, one per number, colored by proof state, and the 31 red ones the engine never flagged.
    - Point at "Where the return stands" and "What stands between this return and filing".
