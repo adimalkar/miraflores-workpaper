@@ -10,6 +10,8 @@ A workpaper exists to prove the return. So the unit of the product is not a cell
 - **what was changed**: original kept, who, why, and the tax effect;
 - **what is still open**: checks, notes and questions.
 
+The product opens on **Today**, a role-aware queue of what the signed-in person should do next. **Focus mode** works that queue one item at a time from the keyboard, with the source document beside each number.
+
 Everything else is a view over that one structure:
 
 - the proof map (every number as a square);
